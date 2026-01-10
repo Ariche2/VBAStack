@@ -14,11 +14,12 @@
     <Deterministic>true</Deterministic>
     <PackageOutputPath>VBAStack</PackageOutputPath>
     <Authors>LeoB</Authors>
-    <PackageReadmeFile>readme.md</PackageReadmeFile>
+    <PackageReadmeFile>README.MD</PackageReadmeFile>
     <IncludeBuildOutput>true</IncludeBuildOutput>
 	<RepositoryUrl>https://github.com/Ariche2/VBAStack</RepositoryUrl>
 	<RepositoryType>git</RepositoryType>
-	<tags>VBA</tags>
+	<PackageTags>VBA</PackageTags>
+	<PackageVersion>1.0.0-prerelease</PackageVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -145,6 +146,9 @@
       <PackageCopyToOutput>true</PackageCopyToOutput>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\README.MD">
+		<Pack>True</Pack>
+		<PackagePath>\</PackagePath>
+	</None>
   </ItemGroup>
 </Project>

@@ -139,7 +139,7 @@ Todo. This sucks at the minute.
 
 When distributing:
 
-Just add the Nuget package to your project. Or;
+Just add the [Nuget package](https://www.nuget.org/packages/VBAStack) to your project. Or;
 
 1. Include `VBAStack.dll` in your project references
 2. Ensure `PdbEnum_x64.exe` and `PdbEnum_x86.exe` are in the same directory or a subdirectory
