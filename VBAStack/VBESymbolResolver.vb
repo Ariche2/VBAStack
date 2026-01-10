@@ -68,7 +68,7 @@ Friend Class VBESymbolResolver
                 potentialreturnpath = filepath
             ElseIf Path.GetFileName(filepath).ToLowerInvariant = ExecutableName.ToLowerInvariant() Then
                 returnpath = filepath
-                s_PdbEnumPath = s_PdbEnumPath
+                s_PdbEnumPath = returnpath
                 Exit For
             End If
         Next
