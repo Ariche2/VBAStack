@@ -21,6 +21,7 @@
 	<PackageTags>VBA</PackageTags>
 	<PackageVersion>1.0.0.5</PackageVersion>
 	<PackageDescription>A library for retrieving VBA callstack information at runtime from Office applications</PackageDescription>
+	<RuntimeIdentifiers>win</RuntimeIdentifiers>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
