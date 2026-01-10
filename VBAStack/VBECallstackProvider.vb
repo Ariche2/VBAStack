@@ -85,7 +85,11 @@ Public Class VBECallstackProvider
                         Dim functionName As String = parts(2)
                         result.AppendLine($"{moduleName}::{functionName}")
                     Else
-                        result.AppendLine($"Unparseable stack entry: {callStackStr}")
+                        If callStackStr = "[<Non-Basic Code>]" Then
+                            result.AppendLine(callStackStr)
+                        Else
+                            result.AppendLine($"Unparseable stack entry: {callStackStr}")
+                        End If
                     End If
                 Catch ex As Exception
                     result.AppendLine($"Could not read stack at index {i} - exception: {ex.Message}")

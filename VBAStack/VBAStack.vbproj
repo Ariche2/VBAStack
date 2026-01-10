@@ -19,7 +19,7 @@
 	<RepositoryUrl>https://github.com/Ariche2/VBAStack</RepositoryUrl>
 	<RepositoryType>git</RepositoryType>
 	<PackageTags>VBA</PackageTags>
-	<PackageVersion>1.0.0.5</PackageVersion>
+	<PackageVersion>1.0.0.6</PackageVersion>
 	<PackageDescription>A library for retrieving VBA callstack information at runtime from Office applications</PackageDescription>
 	<RuntimeIdentifiers>win</RuntimeIdentifiers>
   </PropertyGroup>
