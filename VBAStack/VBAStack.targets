@@ -1,10 +1,14 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 	<ItemGroup>
-		<PdbEnumAndDbgHelp Include="$(MSBuildThisFileDirectory)..\runtimes\**\*.*"/>
+		<DbgHelpSymSrv Include="$(MSBuildThisFileDirectory)..\runtimes\**\*.dll"/>
+		<PdbEnumExes Include ="$(MSBuildThisFileDirectory)..\runtimes\**\PdbEnum*.exe"/>
 	</ItemGroup>
 	<Target Name="CopyPdbEnumAndDbgHelpFiles" AfterTargets="Build">
-		<Copy SourceFiles="@(PdbEnumAndDbgHelp)" 
+		<Copy SourceFiles="@(DbgHelpSymSrv)" 
 			  DestinationFolder="$(OutputPath)runtimes\%(RecursiveDir)" 
+			  SkipUnchangedFiles="true" />
+		<Copy SourceFiles="@(PdbEnumExes)" 
+			  DestinationFolder="$(OutputPath)" 
 			  SkipUnchangedFiles="true" />
 	</Target>
 </Project>

@@ -19,7 +19,7 @@
 	<RepositoryUrl>https://github.com/Ariche2/VBAStack</RepositoryUrl>
 	<RepositoryType>git</RepositoryType>
 	<PackageTags>VBA</PackageTags>
-	<PackageVersion>1.0.0.1</PackageVersion>
+	<PackageVersion>1.0.0.3</PackageVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
