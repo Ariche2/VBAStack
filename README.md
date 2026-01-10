@@ -4,6 +4,11 @@ A library for retrieving VBA callstack information at runtime from Office applic
 
 Credit to "The Trick" - without finding his [VbTrickTimer](https://github.com/thetrik/VbTrickTimer) code, I would've just accepted that VBE7 doesn't export the functions to do this, and would never have thought to go digging around in VBE7.dll directly.
 
+## Note on AI use
+The vast majority of this code was written with my own two hands, but I will admit to prettifying things (mostly documentation, and the bones of this readme) with AI.
+
+I did discover that it is *absolutely terrible* at debugging stuff when it isn't well-covered ground, though.
+
 ## Overview
 
 VBAStack allows you to programmatically retrieve the current VBA call stack from a running VBA application (Excel, Word, Access, etc.).
