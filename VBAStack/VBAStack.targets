@@ -1,0 +1,10 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<ItemGroup>
+		<PdbEnumAndDbgHelp Include="$(MSBuildThisFileDirectory)..\runtimes\**\*.*"/>
+	</ItemGroup>
+	<Target Name="CopyPdbEnumAndDbgHelpFiles" AfterTargets="Build">
+		<Copy SourceFiles="@(PdbEnumAndDbgHelp)" 
+			  DestinationFolder="$(OutputPath)runtimes\%(RecursiveDir)" 
+			  SkipUnchangedFiles="true" />
+	</Target>
+</Project>

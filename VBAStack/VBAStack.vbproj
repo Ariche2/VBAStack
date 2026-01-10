@@ -19,7 +19,7 @@
 	<RepositoryUrl>https://github.com/Ariche2/VBAStack</RepositoryUrl>
 	<RepositoryType>git</RepositoryType>
 	<PackageTags>VBA</PackageTags>
-	<PackageVersion>1.0.0.1-prerelease</PackageVersion>
+	<PackageVersion>1.0.0.1</PackageVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -151,6 +151,10 @@
     <None Include="..\README.MD">
 		<Pack>True</Pack>
 		<PackagePath>\</PackagePath>
+	</None>
+	<None Include="VBAStack.targets">
+		<Pack>True</Pack>
+		<PackagePath>\build\</PackagePath>
 	</None>
   </ItemGroup>
 </Project>
