@@ -156,7 +156,6 @@ Upgrade to Office 2010 or later, or try your hand at implementing this for VBA6 
 - Verify internet connectivity for symbol server access
 
 ### Empty callstack returned
-This may occur if:
 - VBA code is not currently executing
 - The VBE is in Design mode with no code on the stack
 - There's an issue with symbol resolution
