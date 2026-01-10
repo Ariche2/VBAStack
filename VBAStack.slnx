@@ -1,0 +1,31 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="NativePtrCaller/NativePtrCaller.csproj" Id="6b797878-17ab-4628-b7dc-6bfdbfebeb08">
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+  </Project>
+  <Project Path="PdbEnum.Tests/PdbEnum.Tests.csproj" Id="8d9e4a4e-5c8f-4e9c-b3a1-7f5d6e8a9b2c">
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+    <Build Solution="Release|Any CPU" Project="false" />
+  </Project>
+  <Project Path="PdbEnum/PdbEnum_x64.csproj" Id="80aa98b0-eb03-427c-8f95-68a422269a0a">
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+  </Project>
+  <Project Path="PdbEnum/PdbEnum_x86.csproj" Id="ef2d58f9-5861-47d5-b17c-09f2c228acff">
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+  </Project>
+  <Project Path="PdbEnumBase/PdbEnum.csproj" Id="85395f99-4f02-4633-8589-3b5795b58521" />
+  <Project Path="VBAStack/VBAStack.vbproj" Id="9dd84a8b-513d-470c-910a-8a8dda9eb3c8">
+    <BuildDependency Project="PdbEnum/PdbEnum_x64.csproj" />
+    <BuildDependency Project="PdbEnum/PdbEnum_x86.csproj" />
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+  </Project>
+</Solution>

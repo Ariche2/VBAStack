@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{9DD84A8B-513D-470C-910A-8A8DDA9EB3C8}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>VBAStack</RootNamespace>
+    <AssemblyName>VBAStack</AssemblyName>
+    <FileAlignment>512</FileAlignment>
+    <MyType>Windows</MyType>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <Deterministic>true</Deterministic>
+    <PackageOutputPath>VBAStack</PackageOutputPath>
+    <Authors>LeoB</Authors>
+    <PackageReadmeFile>readme.md</PackageReadmeFile>
+    <IncludeBuildOutput>true</IncludeBuildOutput>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <DefineDebug>true</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DocumentationFile>VBAStack.xml</DocumentationFile>
+    <NoWarn>42016,41999,42017,42018,42019,42032,42036,42020,42021,42022</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DocumentationFile>VBAStack.xml</DocumentationFile>
+    <NoWarn>42016,41999,42017,42018,42019,42032,42036,42020,42021,42022</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionExplicit>On</OptionExplicit>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionCompare>Binary</OptionCompare>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionStrict>Off</OptionStrict>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionInfer>On</OptionInfer>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+  <ItemGroup>
+    <Import Include="Microsoft.VisualBasic" />
+    <Import Include="System" />
+    <Import Include="System.Collections" />
+    <Import Include="System.Collections.Generic" />
+    <Import Include="System.Data" />
+    <Import Include="System.Diagnostics" />
+    <Import Include="System.Linq" />
+    <Import Include="System.Xml.Linq" />
+    <Import Include="System.Threading.Tasks" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="My Project\AssemblyInfo.vb" />
+    <Compile Include="VBECallstackProvider.vb" />
+    <Compile Include="VBEEnums.vb" />
+    <Compile Include="VBENativeWrapper.vb" />
+    <Compile Include="VBESymbolResolver.vb" />
+    <Compile Include="VBEWindowHook.vb" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="NuGet.Build.Tasks.Pack">
+      <Version>6.14.0</Version>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Tenekon.MSBuild.Packaging.ProjectBuildInPackage">
+      <Version>2.0.0</Version>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NativePtrCaller\NativePtrCaller.csproj" PrivateAssets="all">
+      <Project>{6b797878-17ab-4628-b7dc-6bfdbfebeb08}</Project>
+      <Name>NativePtrCaller</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\PdbEnumBase\PdbEnum.csproj" PrivateAssets="all">
+      <Project>{85395f99-4f02-4633-8589-3b5795b58521}</Project>
+      <Name>PdbEnum</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
+  <!-- Nuget package - Bitness dependent stuff -->
+  <ItemGroup>
+    <Content Include="..\PdbEnumBase\DbgHelp\amd64\dbghelp.dll">
+      <Link>DbgHelp\amd64\dbghelp.dll</Link>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\win-x64\dbghelp.dll</PackagePath>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\PdbEnumBase\DbgHelp\amd64\symsrv.dll">
+      <link>DbgHelp\amd64\symsrv.dll</link>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\win-x64\symsrv.dll</PackagePath>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\PdbEnumBase\DbgHelp\x86\dbghelp.dll">
+      <link>DbgHelp\x86\dbghelp.dll</link>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\win-x86\dbghelp.dll</PackagePath>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\PdbEnumBase\DbgHelp\x86\symsrv.dll">
+      <link>DbgHelp\x86\symsrv.dll</link>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\win-x86\symsrv.dll</PackagePath>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\PdbEnum\bin\$(Configuration)\PdbEnum_x64.exe">
+      <Pack>true</Pack>
+      <PackagePath>runtimes\win-x64\PdbEnum_x64.exe</PackagePath>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\PdbEnum\bin\$(Configuration)\PdbEnum_x86.exe">
+      <Pack>true</Pack>
+      <PackagePath>runtimes\win-x86\PdbEnum_x86.exe</PackagePath>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>
