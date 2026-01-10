@@ -16,6 +16,9 @@
     <Authors>LeoB</Authors>
     <PackageReadmeFile>readme.md</PackageReadmeFile>
     <IncludeBuildOutput>true</IncludeBuildOutput>
+	<RepositoryUrl>https://github.com/Ariche2/VBAStack</RepositoryUrl>
+	<RepositoryType>git</RepositoryType>
+	<tags>VBA</tags>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
