@@ -19,7 +19,7 @@
 	<RepositoryUrl>https://github.com/Ariche2/VBAStack</RepositoryUrl>
 	<RepositoryType>git</RepositoryType>
 	<PackageTags>VBA</PackageTags>
-	<PackageVersion>1.0.0-prerelease</PackageVersion>
+	<PackageVersion>1.0.0.1-prerelease</PackageVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -107,40 +107,42 @@
   <!-- Nuget package - Bitness dependent stuff -->
   <ItemGroup>
     <Content Include="..\PdbEnumBase\DbgHelp\amd64\dbghelp.dll">
-      <Link>DbgHelp\amd64\dbghelp.dll</Link>
+      <Link>runtimes\win-x64\dbghelp.dll</Link>
       <Pack>true</Pack>
       <PackagePath>runtimes\win-x64\dbghelp.dll</PackagePath>
       <PackageCopyToOutput>true</PackageCopyToOutput>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="..\PdbEnumBase\DbgHelp\amd64\symsrv.dll">
-      <link>DbgHelp\amd64\symsrv.dll</link>
+      <link>runtimes\win-x64\symsrv.dll</link>
       <Pack>true</Pack>
       <PackagePath>runtimes\win-x64\symsrv.dll</PackagePath>
       <PackageCopyToOutput>true</PackageCopyToOutput>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="..\PdbEnumBase\DbgHelp\x86\dbghelp.dll">
-      <link>DbgHelp\x86\dbghelp.dll</link>
+      <link>runtimes\win-x86\dbghelp.dll</link>
       <Pack>true</Pack>
       <PackagePath>runtimes\win-x86\dbghelp.dll</PackagePath>
       <PackageCopyToOutput>true</PackageCopyToOutput>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="..\PdbEnumBase\DbgHelp\x86\symsrv.dll">
-      <link>DbgHelp\x86\symsrv.dll</link>
+      <link>runtimes\win-x86\symsrv.dll</link>
       <Pack>true</Pack>
       <PackagePath>runtimes\win-x86\symsrv.dll</PackagePath>
       <PackageCopyToOutput>true</PackageCopyToOutput>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="..\PdbEnum\bin\$(Configuration)\PdbEnum_x64.exe">
+	  <link>runtimes\win-x64\PdbEnum_x64.exe</link>
       <Pack>true</Pack>
       <PackagePath>runtimes\win-x64\PdbEnum_x64.exe</PackagePath>
       <PackageCopyToOutput>true</PackageCopyToOutput>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="..\PdbEnum\bin\$(Configuration)\PdbEnum_x86.exe">
+	  <link>runtimes\win-x86\PdbEnum_x86.exe</link>
       <Pack>true</Pack>
       <PackagePath>runtimes\win-x86\PdbEnum_x86.exe</PackagePath>
       <PackageCopyToOutput>true</PackageCopyToOutput>

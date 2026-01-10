@@ -4,11 +4,15 @@ A library for retrieving VBA callstack information at runtime from Office applic
 
 ## Overview
 
-VBAStack allows you to programmatically retrieve the current VBA call stack from a running VBA application (Excel, Word, Access, etc.). It does need to be loaded into the same process as the VBE, as it calls internal undocumented functions inside VBE7.dll. As such, it's best deployed as part of a COM add-in or VBA add-in and called from VBA via the add-in.
+VBAStack allows you to programmatically retrieve the current VBA call stack from a running VBA application (Excel, Word, Access, etc.).
+
+It does need to be loaded into the same process as the VBE, as it calls internal undocumented functions inside VBE7.dll. As such, it's best deployed as part of a COM add-in or VBA add-in and called from VBA via the add-in.
+
 I am personally using it with a VSTO addin for MS Access, which makes deployment incredibly easy (not quite as easy as a certain other tool that can get the callstack, but I'm working on it).
+
 These functions are not publicly documented or even exported from the DLL, however Microsoft does include them in the symbol files available on the Microsoft Symbol Servers. As such, we can dynamically download the right PDB file and retrieve the necessary function pointers from it using DbgHelp.dll (the same way debuggers retrieve symbols).
 
-Due to the functions undocumented nature, and my lack of confidence in my own ability, this library is provided as-is without any guarantees. Use at your own risk.
+***Due to the undocumented nature of these functions, and my lack of confidence in my own ability, this library is provided as-is without any guarantees. Use at your own risk.***
 
 ## Requirements
 
