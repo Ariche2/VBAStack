@@ -40,7 +40,7 @@
 			<IsAssembly>true</IsAssembly>
 		</Content>
 		<Content Include="$(MSBuildThisFileDirectory)..\runtimes\win-x64\native\PdbEnum_x64.exe" Condition="'$(IsAnyCpu)' == 'true' Or '$(Platform)' == 'x64'">
-			<link>runtimes\win-x64\native\PdbEnum_x64.dll</link>
+			<link>runtimes\win-x64\native\PdbEnum_x64.exe</link>
 			<Visible>False</Visible>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<IncludeInVSIX>true</IncludeInVSIX>
@@ -49,7 +49,7 @@
 			<IsAssembly>true</IsAssembly>
 		</Content>
 		<Content Include="$(MSBuildThisFileDirectory)..\runtimes\win-x86\native\PdbEnum_x86.exe" Condition="'$(IsAnyCpu)' == 'true' Or '$(Platform)' == 'x86'">
-			<link>runtimes\win-x86\native\PdbEnum_x86.dll</link>
+			<link>runtimes\win-x86\native\PdbEnum_x86.exe</link>
 			<Visible>False</Visible>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<IncludeInVSIX>true</IncludeInVSIX>
