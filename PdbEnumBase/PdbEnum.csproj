@@ -54,7 +54,7 @@
     <None Include="STRUCTURED_OUTPUT.md" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="DbgHelp\amd64\dbghelp.dll">
+    <!--Content Include="DbgHelp\amd64\dbghelp.dll">
 	  <Pack>true</Pack>
 	  <PackagePath>lib\win-x64\dbghelp.dll</PackagePath>
 	  <PackageCopyToOutput>true</PackageCopyToOutput>
@@ -77,7 +77,7 @@
 	  <PackagePath>lib\win-x86\symsrv.dll</PackagePath>
 	  <PackageCopyToOutput>true</PackageCopyToOutput>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    </Content-->
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -123,186 +123,40 @@ namespace PdbEnum_x86
             Console.WriteLine("  Set _NT_SYMBOL_PATH environment variable to override");
         }
 
-        static void FindSymbol(int processId, string moduleName, string symbolName, OutputFormat outputFormat, bool quietMode)
+        static void LoadDbgHelp(TextWriter log)
         {
-            TextWriter log = quietMode ? TextWriter.Null : Console.Error;
-            SymbolEnumerator.SetQuietMode(quietMode);
+            string directory = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
 
+            // Load dbghelp DLL
             IntPtr hinstDbgHelp;
-            string dbghelpPath = Process.GetCurrentProcess().MainModule.FileName.Replace(Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName), "runtimes");
-            if (IntPtr.Size == 8)
-            {
-                dbghelpPath += "\\win-x64\\dbghelp.dll";
-            }
-            else
-            {
-                dbghelpPath += "\\win-x86\\dbghelp.dll";
-            }
+            string dbghelpName = "dbghelp_" + (IntPtr.Size == 8 ? "amd64" : "x86") + ".dll";
+            string dbghelpPath = Directory.GetFiles(directory, dbghelpName, SearchOption.AllDirectories).FirstOrDefault();
 
-            if (File.Exists(dbghelpPath))
+            if (dbghelpPath == null)
             {
-                log.WriteLine($"Loading dbghelp.dll from {dbghelpPath}...");
-                hinstDbgHelp = LoadLibraryEx(dbghelpPath, IntPtr.Zero, 0);
-                if (hinstDbgHelp == IntPtr.Zero)
-                {
-                    int err = Marshal.GetLastWin32Error();
-                    throw new InvalidOperationException($"Failed to load dbghelp.dll from {dbghelpPath}. Error: {err}");
-                }
+                throw new InvalidOperationException($"Failed to find {dbghelpName} in the application directory.");
             }
-            else if (File.Exists(dbghelpPath.Replace(".dll", ".notdll")))
-            {
-                File.Copy(dbghelpPath.Replace(".dll", ".notdll"), dbghelpPath, true);
-                File.Copy(dbghelpPath.Replace(".dll", ".notdll").Replace("DbgHelp", "symsrv"), dbghelpPath.Replace("dbghelp.dll", "symsrv.dll"), true);
-                log.WriteLine($"Loading dbghelp.dll from {dbghelpPath}...");
-                hinstDbgHelp = LoadLibraryEx(dbghelpPath, IntPtr.Zero, 0);
-                if (hinstDbgHelp == IntPtr.Zero)
-                {
-                    int err = Marshal.GetLastWin32Error();
-                    throw new InvalidOperationException($"Failed to load dbghelp.dll from {dbghelpPath}. Error: {err}");
-                }
-            }
-            else
-            {
-                //Fail. ONLY use the DBGHelp.dll we provide
-                throw new InvalidOperationException("Failed to find dbghelp.dll in the expected location. Make sure the DbgHelp folder with the appropriate architecture subfolder exists alongside PdbEnum.exe.");
-            }
-
-
-            log.WriteLine($"Opening process {processId}...");
-            IntPtr processHandle = OpenProcess(
-                PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
-                false,
-                (uint)processId);
-
-            if (processHandle == IntPtr.Zero)
-            {
-                int error = Marshal.GetLastWin32Error();
-                throw new InvalidOperationException($"Failed to open process {processId}. Error: {error}. Make sure you have appropriate permissions.");
-            }
-
-            SymbolSearchResult result = new() { Success = false };
-
+            log.WriteLine($"Loading {dbghelpName}...");
             try
             {
-                log.WriteLine($"Finding module '{moduleName}'...");
-                ModuleInfo moduleInfo = ModuleHelper.GetModuleInfo(processHandle, moduleName) ?? throw new InvalidOperationException($"Module '{moduleName}' not found in process {processId}");
-                result.Module = moduleInfo;
-
-                if (outputFormat == OutputFormat.Human)
+                hinstDbgHelp = LoadLibraryEx(dbghelpPath, IntPtr.Zero, 0);
+                if (hinstDbgHelp == IntPtr.Zero)
                 {
-                    log.WriteLine(moduleInfo.ToString());
-                    log.WriteLine();
-                }
-
-                string symbolPath = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH");
-                if (string.IsNullOrEmpty(symbolPath))
-                {
-                    symbolPath = "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols";
-                }
-
-                log.WriteLine($"Symbol Path: {symbolPath}");
-                log.WriteLine();
-
-                SymbolEnumerator enumerator = new(processHandle);
-
-                try
-                {
-                    log.WriteLine("Initializing symbol handler...");
-                    enumerator.InitializeSymbols(symbolPath);
-
-                    log.WriteLine($"Loading symbols for '{moduleInfo.Name}'...");
-                    log.WriteLine("(This may take a while if PDB needs to be downloaded)");
-                    enumerator.LoadModule(moduleInfo.FullPath, moduleInfo.BaseAddress, moduleInfo.Size);
-
-                    PdbInfo pdbInfo = enumerator.GetPdbInfo();
-                    result.PdbInfo = pdbInfo;
-
-                    if (outputFormat == OutputFormat.Human)
-                    {
-                        log.WriteLine();
-                        log.WriteLine(pdbInfo.ToString());
-                        log.WriteLine();
-                    }
-
-                    log.WriteLine($"Searching for symbol containing '{symbolName}'...");
-                    log.WriteLine();
-
-                    SymbolInfo symbol = enumerator.FindSymbol(symbolName);
-                    result.Symbol = symbol;
-                    result.SearchedSymbolName = symbolName;
-                    result.Success = true;
-
-                    OutputFormatter.WriteResult(result, outputFormat, Console.Out);
-
-                    if (symbol == null && outputFormat == OutputFormat.Human)
-                    {
-                        log.WriteLine();
-                        log.WriteLine("Tip: The search is case-insensitive and matches partial names.");
-                        log.WriteLine("      Try a shorter or different part of the symbol name.");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    log.WriteLine(ex.ToString());
-                    throw;
-                }
-                finally
-                {
-                    enumerator.Cleanup();
+                    int err = Marshal.GetLastWin32Error();
+                    throw new InvalidOperationException($"Failed to load {dbghelpName} from {dbghelpPath}. Error: {err}");
                 }
             }
-            finally
+            catch (Exception ex)
             {
-                if (processHandle != IntPtr.Zero)
-                {
-                    CloseHandle(processHandle);
-                }
+                throw new InvalidOperationException($"Failed to load {dbghelpName} from {dbghelpPath}.", ex);
             }
         }
-
         static void FindSymbols(int processId, string moduleName, List<string> symbolNames, OutputFormat outputFormat, bool quietMode)
         {
             TextWriter log = quietMode ? TextWriter.Null : Console.Error;
             SymbolEnumerator.SetQuietMode(quietMode);
 
-            IntPtr hinstDbgHelp;
-            string dbghelpPath = Process.GetCurrentProcess().MainModule.FileName.Replace(Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName), "runtimes");
-            if (IntPtr.Size == 8)
-            {
-                dbghelpPath += "\\win-x64\\dbghelp.dll";
-            }
-            else
-            {
-                dbghelpPath += "\\win-x86\\dbghelp.dll";
-            }
-
-            if (File.Exists(dbghelpPath))
-            {
-                log.WriteLine($"Loading dbghelp.dll from {dbghelpPath}...");
-                hinstDbgHelp = LoadLibraryEx(dbghelpPath, IntPtr.Zero, 0);
-                if (hinstDbgHelp == IntPtr.Zero)
-                {
-                    int err = Marshal.GetLastWin32Error();
-                    throw new InvalidOperationException($"Failed to load dbghelp.dll from {dbghelpPath}. Error: {err}");
-                }
-            }
-            else if (File.Exists(dbghelpPath.Replace(".dll", ".notdll"))) //this is part of an ugly hack to make ClickOnce/VSTO stop complaining about these DLLs being assemblies
-            {
-                File.Copy(dbghelpPath.Replace(".dll", ".notdll"), dbghelpPath, true);
-                File.Copy(dbghelpPath.Replace(".dll", ".notdll").Replace("DbgHelp", "symsrv"), dbghelpPath.Replace("dbghelp.dll", "symsrv.dll"), true);
-                log.WriteLine($"Loading dbghelp.dll from {dbghelpPath}...");
-                hinstDbgHelp = LoadLibraryEx(dbghelpPath, IntPtr.Zero, 0);
-                if (hinstDbgHelp == IntPtr.Zero)
-                {
-                    int err = Marshal.GetLastWin32Error();
-                    throw new InvalidOperationException($"Failed to load dbghelp.dll from {dbghelpPath}. Error: {err}");
-                }
-            }
-            else
-            {
-                //Fail. ONLY use the DBGHelp.dll we provide
-                throw new InvalidOperationException("Failed to find dbghelp.dll in the expected location. Make sure the DbgHelp folder with the appropriate architecture subfolder exists alongside PdbEnum.exe.");
-            }
+            LoadDbgHelp(log);
 
             log.WriteLine($"Opening process {processId}...");
             IntPtr processHandle = OpenProcess(
@@ -333,7 +187,8 @@ namespace PdbEnum_x86
                 string symbolPath = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH");
                 if (string.IsNullOrEmpty(symbolPath))
                 {
-                    symbolPath = "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols";
+                    //Little known fact; you can do "symsrv*DLLNAME*blahblah" to load a custom symbol server DLL. Here we use the appropriate symsrv DLL for the architecture.
+                    symbolPath = "symsrv*symsrv_" + (IntPtr.Size == 8 ? "amd64" : "x86") + ".dll*C:\\Symbols*https://msdl.microsoft.com/download/symbols";
                 }
 
                 log.WriteLine($"Symbol Path: {symbolPath}");

@@ -16,12 +16,12 @@
     <Authors>LeoB</Authors>
     <PackageReadmeFile>README.MD</PackageReadmeFile>
     <IncludeBuildOutput>true</IncludeBuildOutput>
-	<RepositoryUrl>https://github.com/Ariche2/VBAStack</RepositoryUrl>
-	<RepositoryType>git</RepositoryType>
-	<PackageTags>VBA</PackageTags>
-	<PackageVersion>1.0.0.6</PackageVersion>
-	<PackageDescription>A library for retrieving VBA callstack information at runtime from Office applications</PackageDescription>
-	<RuntimeIdentifiers>win</RuntimeIdentifiers>
+    <RepositoryUrl>https://github.com/Ariche2/VBAStack</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>VBA</PackageTags>
+    <PackageVersion>1.0.0.8</PackageVersion>
+    <PackageDescription>A library for retrieving VBA callstack information at runtime from Office applications</PackageDescription>
+    <RuntimeIdentifiers>win</RuntimeIdentifiers>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -104,39 +104,47 @@
       <Project>{85395f99-4f02-4633-8589-3b5795b58521}</Project>
       <Name>PdbEnum</Name>
     </ProjectReference>
+    <ProjectReference Include="..\PdbEnum\PdbEnum_x64.csproj" PrivateAssets="all">
+      <Project>{80AA98B0-EB03-427C-8F95-68A422269A0A}</Project>
+      <Name>PdbEnum_x64</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\PdbEnum\PdbEnum_x86.csproj" PrivateAssets="all">
+      <Project>{EF2D58F9-5861-47D5-B17C-09F2C228ACFF}</Project>
+      <Name>PdbEnum_x86</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <!-- Nuget package - Bitness dependent stuff -->
   <ItemGroup>
-    <Content Include="..\PdbEnumBase\DbgHelp\amd64\dbghelp.dll">
-      <Link>runtimes\win-x64\dbghelp.dll</Link>
+    <None Include="..\PdbEnum\DbgHelp\amd64\symsrv_amd64.dll">
+      <link>runtimes\win-x64\native\symsrv_amd64.dll</link>
       <Pack>true</Pack>
-      <PackagePath>runtimes\win-x64\dbghelp.dll</PackagePath>
+      <PackagePath>runtimes\win-x64\native\symsrv_amd64.dll</PackagePath>
       <PackageCopyToOutput>true</PackageCopyToOutput>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\PdbEnumBase\DbgHelp\amd64\symsrv.dll">
-      <link>runtimes\win-x64\symsrv.dll</link>
+    </None>
+    <None Include="..\PdbEnum\DbgHelp\x86\symsrv_x86.dll">
+      <link>runtimes\win-x86\native\symsrv_x86.dll</link>
       <Pack>true</Pack>
-      <PackagePath>runtimes\win-x64\symsrv.dll</PackagePath>
+      <PackagePath>runtimes\win-x86\native\symsrv_x86.dll</PackagePath>
       <PackageCopyToOutput>true</PackageCopyToOutput>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\PdbEnumBase\DbgHelp\x86\dbghelp.dll">
-      <link>runtimes\win-x86\dbghelp.dll</link>
+    </None>
+    <None Include="..\PdbEnum\DbgHelp\amd64\dbghelp_amd64.dll">
+      <Link>runtimes\win-x64\native\dbghelp_amd64.dll</Link>
       <Pack>true</Pack>
-      <PackagePath>runtimes\win-x86\dbghelp.dll</PackagePath>
+      <PackagePath>runtimes\win-x64\native\dbghelp_amd64.dll</PackagePath>
       <PackageCopyToOutput>true</PackageCopyToOutput>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\PdbEnumBase\DbgHelp\x86\symsrv.dll">
-      <link>runtimes\win-x86\symsrv.dll</link>
+    </None>
+    <None Include="..\PdbEnum\DbgHelp\x86\dbghelp_x86.dll">
+      <link>runtimes\win-x86\native\dbghelp_x86.dll</link>
       <Pack>true</Pack>
-      <PackagePath>runtimes\win-x86\symsrv.dll</PackagePath>
+      <PackagePath>runtimes\win-x86\native\dbghelp_x86.dll</PackagePath>
       <PackageCopyToOutput>true</PackageCopyToOutput>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\PdbEnum\bin\$(Configuration)\PdbEnum_x64.exe">
+    </None>
+    <!--Content Include="..\PdbEnum\bin\$(Configuration)\PdbEnum_x64.exe">
 	  <link>runtimes\win-x64\PdbEnum_x64.exe</link>
       <Pack>true</Pack>
       <PackagePath>runtimes\win-x64\PdbEnum_x64.exe</PackagePath>
@@ -149,14 +157,14 @@
       <PackagePath>runtimes\win-x86\PdbEnum_x86.exe</PackagePath>
       <PackageCopyToOutput>true</PackageCopyToOutput>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    </Content-->
     <None Include="..\README.MD">
-		<Pack>True</Pack>
-		<PackagePath>\</PackagePath>
-	</None>
-	<None Include="VBAStack.targets">
-		<Pack>True</Pack>
-		<PackagePath>\build\</PackagePath>
-	</None>
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="VBAStack.targets">
+      <Pack>True</Pack>
+      <PackagePath>\build\</PackagePath>
+    </None>
   </ItemGroup>
 </Project>

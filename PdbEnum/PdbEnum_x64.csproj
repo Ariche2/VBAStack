@@ -76,24 +76,16 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="..\PdbEnumBase\DbgHelp\amd64\dbghelp.dll">
-      <Link>DbgHelp\amd64\dbghelp.dll</Link>
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\PdbEnumBase\DbgHelp\amd64\symsrv.dll">
-      <Link>DbgHelp\amd64\symsrv.dll</Link>
+    <Content Include="DbgHelp\amd64\dbghelp_amd64.dll" />
+    <Content Include="DbgHelp\amd64\symsrv_amd64.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="..\PdbEnumBase\DbgHelp\x86\dbghelp.dll">
-      <Link>DbgHelp\x86\dbghelp.dll</Link>
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\PdbEnumBase\DbgHelp\x86\symsrv.dll">
-      <Link>DbgHelp\x86\symsrv.dll</Link>
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <NativeReference Include="Microsoft.Windows.DebuggersAndTools, Version=1.0.0.0, ProcessorArchitecture=amd64, Type=win32">
+      <Name>dbghelp_amd64.dll</Name>
+      <HintPath>DbgHelp\amd64\dbghelp_amd64.dll</HintPath>
+    </NativeReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
