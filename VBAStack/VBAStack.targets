@@ -14,14 +14,20 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<IncludeInVsix>true</IncludeInVsix>
 		</Content>
-		<NativeReference Include="Microsoft.Windows.DebuggersAndTools, Version=1.0.0.0, ProcessorArchitecture=amd64, Type=win32">
-			<Name>dbghelp_amd64.dll</Name>
-			<HintPath>$(MSBuildThisFileDirectory)..\runtimes\win-x64\native\dbghelp_amd64.dll"</HintPath>
-		</NativeReference>
-		<NativeReference Include="Microsoft.Windows.DebuggersAndTools, Version=1.0.0.0, ProcessorArchitecture=x86, Type=win32">
-			<Name>dbghelp_x86.dll</Name>
-			<HintPath>$(MSBuildThisFileDirectory)..\runtimes\win-x86\native\dbghelp_x86.dll"</HintPath>
-		</NativeReference>
+		<Content Include="$(MSBuildThisFileDirectory)..\runtimes\win-x64\native\dbghelp_x64.dll">
+			<link>runtimes\win-x64\native\dbghelp_x64.dll</link>
+			<PublishState>Included</PublishState>
+			<Visible>False</Visible>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<IncludeInVsix>true</IncludeInVsix>
+		</Content>
+		<Content Include="$(MSBuildThisFileDirectory)..\runtimes\win-x86\native\dbghelp_x86.dll">
+			<link>runtimes\win-x86\native\dbghelp_x86.dll</link>
+			<PublishState>Included</PublishState>
+			<Visible>False</Visible>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<IncludeInVsix>true</IncludeInVsix>
+		</Content>
 		<!--Content Include ="$(MSBuildThisFileDirectory)..\runtimes\win-x64\PdbEnum_x64.exe">
 			<Link>PdbEnum_x64.exe</Link>
 			<PublishState>Included</PublishState>
