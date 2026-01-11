@@ -91,13 +91,13 @@ Friend Class VBESymbolResolver
         GetVBE7ModuleBase()
 
         If String.IsNullOrEmpty(s_VBE7Path) OrElse Not File.Exists(s_VBE7Path) Then
-            Debug.WriteLine("[VBESymbolResolver] VBE7.DLL path not found")
+            VBAStackLogger.LogError("[VBESymbolResolver] VBE7.DLL path not found")
             Return False
         End If
 
         Dim pdbEnumPath As String = GetPdbEnumPath()
         If String.IsNullOrEmpty(pdbEnumPath) Then
-            Debug.WriteLine("[VBESymbolResolver] PdbEnum.exe not found")
+            VBAStackLogger.LogError("[VBESymbolResolver] PdbEnum.exe not found")
             Throw New Exception("PdbEnum.exe not found")
         End If
 
@@ -113,7 +113,7 @@ Friend Class VBESymbolResolver
         Dim batchResult As BatchSymbolSearchResult = CallPdbEnumBatch(symbolNames)
 
         If Not batchResult.Success OrElse batchResult.Symbols Is Nothing Then
-            Debug.WriteLine($"[VBESymbolResolver] Batch symbol resolution failed: {batchResult.ErrorMessage}")
+            VBAStackLogger.LogError($"[VBESymbolResolver] Batch symbol resolution failed: {batchResult.ErrorMessage}")
             Return False
         End If
 
@@ -121,9 +121,9 @@ Friend Class VBESymbolResolver
             If symbolResult.Success AndAlso symbolResult.Symbol IsNot Nothing Then
                 Dim symbolPtr As New IntPtr(CLng(symbolResult.Symbol.Address))
                 s_SymbolCache(symbolResult.SearchedSymbolName) = symbolPtr
-                Debug.WriteLine($"[VBESymbolResolver] Resolved {symbolResult.SearchedSymbolName} -> {symbolResult.Symbol.Address:X}")
+                VBAStackLogger.LogDebug($"[VBESymbolResolver] Resolved {symbolResult.SearchedSymbolName} -> {symbolResult.Symbol.Address:X}")
             Else
-                Debug.WriteLine($"[VBESymbolResolver] Failed to resolve {symbolResult.SearchedSymbolName}")
+                VBAStackLogger.LogError($"[VBESymbolResolver] Failed to resolve {symbolResult.SearchedSymbolName}")
             End If
         Next
 
@@ -145,18 +145,18 @@ Friend Class VBESymbolResolver
             Return s_SymbolCache(symbolName)
         End If
 
-        Debug.WriteLine($"[VBESymbolResolver] Symbol {symbolName} not in cache, performing individual lookup")
+        VBAStackLogger.LogDebug($"[VBESymbolResolver] Symbol {symbolName} not in cache, performing individual lookup")
         Dim result As SymbolSearchResult = CallPdbEnum(symbolName)
 
         If Not result.Success OrElse result.Symbol Is Nothing Then
-            Debug.WriteLine($"[VBESymbolResolver] Failed to resolve {symbolName}: {result.ErrorMessage}")
+            VBAStackLogger.LogError($"[VBESymbolResolver] Failed to resolve {symbolName}: {result.ErrorMessage}")
             Return IntPtr.Zero
         End If
 
         Dim symbolPtr As New IntPtr(CLng(result.Symbol.Address))
         s_SymbolCache(symbolName) = symbolPtr
 
-        Debug.WriteLine($"[VBESymbolResolver] Resolved {symbolName} -> {result.Symbol.Address:X}")
+        VBAStackLogger.LogDebug($"[VBESymbolResolver] Resolved {symbolName} -> {result.Symbol.Address:X}")
         Return symbolPtr
     End Function
 #End Region
@@ -175,15 +175,15 @@ Friend Class VBESymbolResolver
         Dim arguments As String = $"-json -quiet {currentProcess} VBE7.DLL {symbolName}"
 
         Try
-            Debug.Print($"[VBESymbolResolver] Calling PdbEnum with args: {arguments}")
+            VBAStackLogger.LogDebug($"[VBESymbolResolver] Calling PdbEnum with args: {arguments}")
             Dim psi As New ProcessStartInfo With {
                 .FileName = pdbEnumPath,
-                .arguments = arguments,
+                .Arguments = arguments,
                 .UseShellExecute = False,
                 .RedirectStandardOutput = True,
                 .RedirectStandardError = True,
-                .CreateNoWindow = True
-            }
+                    .CreateNoWindow = True
+                }
 
             Using proc As Process = Process.Start(psi)
                 Dim output As String = proc.StandardOutput.ReadToEnd()
@@ -191,24 +191,24 @@ Friend Class VBESymbolResolver
                 proc.WaitForExit()
 
                 If Not String.IsNullOrEmpty(errorOutput) Then
-                    Debug.WriteLine($"[VBESymbolResolver stderr] {errorOutput}")
+                    VBAStackLogger.LogWarning($"[VBESymbolResolver stderr] {errorOutput}")
                 End If
 
                 If proc.ExitCode <> 0 Then
                     Return New SymbolSearchResult With {
-                        .Success = False,
-                        .ErrorMessage = $"PdbEnum exited with code {proc.ExitCode}"
-                    }
+                            .Success = False,
+                            .ErrorMessage = $"PdbEnum exited with code {proc.ExitCode}"
+                        }
                 End If
 
                 Return ParseJsonResult(output)
             End Using
         Catch ex As Exception
-            Debug.WriteLine($"[VBESymbolResolver] Error calling PdbEnum: {ex.Message}")
+            VBAStackLogger.LogError($"[VBESymbolResolver] Error calling PdbEnum: {ex.Message}")
             Return New SymbolSearchResult With {
-                .Success = False,
-                .ErrorMessage = ex.Message
-            }
+                    .Success = False,
+                    .ErrorMessage = ex.Message
+                }
         End Try
     End Function
 
@@ -226,10 +226,10 @@ Friend Class VBESymbolResolver
         Dim arguments As String = $"-json -quiet {currentProcess} VBE7.DLL {symbolArgs}"
 
         Try
-            Debug.Print($"[VBESymbolResolver] Calling PdbEnum with args: {arguments}")
+            VBAStackLogger.LogDebug($"[VBESymbolResolver] Calling PdbEnum with args: {arguments}")
             Dim psi As New ProcessStartInfo With {
                 .FileName = pdbEnumPath,
-                .arguments = arguments,
+                .Arguments = arguments,
                 .UseShellExecute = False,
                 .RedirectStandardOutput = True,
                 .RedirectStandardError = True,
@@ -242,7 +242,7 @@ Friend Class VBESymbolResolver
                 proc.WaitForExit()
 
                 If Not String.IsNullOrEmpty(errorOutput) Then
-                    Debug.WriteLine($"[VBESymbolResolver stderr] {errorOutput}")
+                    VBAStackLogger.LogWarning($"[VBESymbolResolver stderr] {errorOutput}")
                 End If
 
                 If proc.ExitCode <> 0 Then
@@ -255,11 +255,11 @@ Friend Class VBESymbolResolver
                 Return ParseBatchJsonResult(output)
             End Using
         Catch ex As Exception
-            Debug.WriteLine($"[VBESymbolResolver] Error calling PdbEnum: {ex.Message}")
+            VBAStackLogger.LogError($"[VBESymbolResolver] Error calling PdbEnum: {ex.Message}")
             Return New BatchSymbolSearchResult With {
-                .Success = False,
-                .ErrorMessage = ex.Message
-            }
+                    .Success = False,
+                    .ErrorMessage = ex.Message
+                }
         End Try
     End Function
 
@@ -270,11 +270,11 @@ Friend Class VBESymbolResolver
                 Return CType(serializer.ReadObject(ms), SymbolSearchResult)
             End Using
         Catch ex As Exception
-            Debug.WriteLine($"[VBESymbolResolver] JSON parse error: {ex.Message}")
+            VBAStackLogger.LogError($"[VBESymbolResolver] JSON parse error: {ex.Message}")
             Return New SymbolSearchResult With {
-                .Success = False,
-                .ErrorMessage = $"JSON parse error: {ex.Message}"
-            }
+                    .Success = False,
+                    .ErrorMessage = $"JSON parse error: {ex.Message}"
+                }
         End Try
     End Function
 
@@ -285,40 +285,63 @@ Friend Class VBESymbolResolver
                 Return CType(serializer.ReadObject(ms), BatchSymbolSearchResult)
             End Using
         Catch ex As Exception
-            Debug.WriteLine($"[VBESymbolResolver] JSON parse error: {ex.Message}")
+            VBAStackLogger.LogError($"[VBESymbolResolver] JSON parse error: {ex.Message}")
             Return New BatchSymbolSearchResult With {
-                .Success = False,
-                .ErrorMessage = $"JSON parse error: {ex.Message}"
-            }
+                        .Success = False,
+                        .ErrorMessage = $"JSON parse error: {ex.Message}"
+                    }
         End Try
     End Function
 #End Region
 
 #Region "Pointer Verification"
     ''' <summary>
-    ''' Verifies that a function pointer is valid by checking for 0xCC padding bytes.
+    ''' Verifies that a function pointer is valid by checking for: 0xCC (INT3 instruction) padding, 0x90 (NOP instruction) padding, or a preceding RET instruction.
     ''' </summary>
     Public Shared Function VerifyFunctionPointer(functionPtr As IntPtr, functionName As String) As Boolean
 
-        If functionPtr = IntPtr.Zero Then
-            Debug.WriteLine($"[VBESymbolResolver] {functionName}: Pointer is null")
-            Return False
-        End If
+        Dim HasINT3PaddingBytes As Boolean = True
+        Dim HasNOPPaddingBytes As Boolean = True
+        Dim HasPrecedingRET As Boolean = True
 
+        'Get the 5 bytes preceding the function pointer
         Dim precedingAddress As IntPtr = IntPtr.Subtract(functionPtr, 5)
         Dim buffer(4) As Byte
 
+        'Check for 5x INT3 instruction (present in the most recent versions of VBE7)
         Marshal.Copy(precedingAddress, buffer, 0, 5)
-
         For i As Integer = 0 To 4
             If buffer(i) <> &HCC Then
-                Debug.WriteLine($"[VBESymbolResolver] {functionName}: Byte at offset -{5 - i} is 0x{buffer(i):X2}, expected 0xCC")
-                Return False
+                HasINT3PaddingBytes = False
+                Exit For
             End If
         Next
 
-        Debug.WriteLine($"[VBESymbolResolver] {functionName}: Successfully verified 0xCC padding at 0x{functionPtr:X}")
-        Return True
+        'Check for at least 2x NOP instruction (present before EbMode and EbGetCallstackCount in older versions of VBE7)
+        If Not HasINT3PaddingBytes Then
+            HasNOPPaddingBytes = True
+            For i As Integer = 3 To 4
+                If buffer(i) <> &H90 Then
+                    HasNOPPaddingBytes = False
+                    Exit For
+                End If
+            Next
+        End If
+
+        'Check for singular RET instruction (present before EbSetMode and ErrGetCallstackString in older versions of VBE7).
+        'I am aware this is clutching at straws.
+        If Not HasINT3PaddingBytes AndAlso Not HasNOPPaddingBytes Then
+            HasPrecedingRET = buffer(4) = &HC3
+        End If
+
+        'Did any of the checks pass?
+        If Not HasINT3PaddingBytes AndAlso Not HasNOPPaddingBytes AndAlso Not HasPrecedingRET Then
+            VBAStackLogger.LogError($"[VBESymbolResolver] {functionName}: Function pointer verification failed at 0x{functionPtr:X}")
+            Return False
+        Else
+            VBAStackLogger.LogDebug($"[VBESymbolResolver] {functionName}: Successfully verified 0xCC padding at 0x{functionPtr:X}")
+            Return True
+        End If
 
     End Function
 
@@ -327,7 +350,7 @@ Friend Class VBESymbolResolver
     ''' </summary>
     Public Shared Function VerifyAllPointers() As Boolean
         If Not Initialize() Then
-            Debug.WriteLine("[VBESymbolResolver] Failed to initialize symbol resolver")
+            VBAStackLogger.LogError("[VBESymbolResolver] Failed to initialize symbol resolver")
             Return False
         End If
 
@@ -336,24 +359,24 @@ Friend Class VBESymbolResolver
 
         For Each symbolName In symbolNames
             If Not s_SymbolCache.ContainsKey(symbolName) Then
-                Debug.WriteLine($"[VBESymbolResolver] Symbol {symbolName} not found in cache")
+                VBAStackLogger.LogError($"[VBESymbolResolver] Symbol {symbolName} not found in cache")
                 Return False
             End If
 
             Dim ptr As IntPtr = s_SymbolCache(symbolName)
             If ptr = IntPtr.Zero Then
-                Debug.WriteLine($"[VBESymbolResolver] Symbol {symbolName} has null pointer")
+                VBAStackLogger.LogError($"[VBESymbolResolver] Symbol {symbolName} has null pointer")
                 Return False
             End If
 
-            Debug.WriteLine($"[VBESymbolResolver] {symbolName}: 0x{ptr.ToString("X")}")
+            VBAStackLogger.LogDebug($"[VBESymbolResolver] {symbolName}: 0x{ptr.ToString("X")}")
             allValid = allValid And VerifyFunctionPointer(ptr, symbolName)
         Next
 
         If allValid Then
-            Debug.WriteLine("[VBESymbolResolver] All function pointers successfully verified with 0xCC padding")
+            VBAStackLogger.LogInfo("[VBESymbolResolver] All function pointers successfully verified with 0xCC padding")
         Else
-            Debug.WriteLine("[VBESymbolResolver] Function pointer validation failed")
+            VBAStackLogger.LogError("[VBESymbolResolver] Function pointer validation failed")
         End If
 
         Return allValid
