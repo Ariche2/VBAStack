@@ -15,32 +15,60 @@ namespace PdbEnum
         private static bool _quietMode = false;
 
         // P/Invoke declarations for DbgHelp.dll
-        [DllImport("dbghelp.dll", SetLastError = true, CharSet = CharSet.Ansi)]
-        private static extern bool SymInitialize(IntPtr hProcess, string UserSearchPath, [MarshalAs(UnmanagedType.Bool)] bool fInvadeProcess);
 
-        [DllImport("dbghelp.dll", SetLastError = true)]
-        private static extern uint SymGetOptions();
+        [DllImport(("dbghelp_amd64.dll"), EntryPoint = "SymInitialize", SetLastError = true, CharSet = CharSet.Ansi)]
+        private static extern bool amd64_SymInitialize(IntPtr hProcess, string UserSearchPath, [MarshalAs(UnmanagedType.Bool)] bool fInvadeProcess);
 
-        [DllImport("dbghelp.dll", SetLastError = true)]
-        private static extern uint SymSetOptions(uint SymOptions);
+        [DllImport("dbghelp_amd64.dll", EntryPoint = "SymGetOptions", SetLastError = true)]
+        private static extern uint amd64_SymGetOptions();
 
-        [DllImport("dbghelp.dll", SetLastError = true, CharSet = CharSet.Ansi)]
-        private static extern ulong SymLoadModuleEx(IntPtr hProcess, IntPtr hFile, string ImageName, string ModuleName, ulong BaseOfDll, uint DllSize, IntPtr Data, uint Flags);
+        [DllImport("dbghelp_amd64.dll", EntryPoint = "SymSetOptions", SetLastError = true)]
+        private static extern uint amd64_SymSetOptions(uint SymOptions);
 
-        [DllImport("dbghelp.dll", SetLastError = true)]
-        private static extern ulong SymGetModuleBase64(IntPtr hProcess, ulong dwAddr);
+        [DllImport("dbghelp_amd64.dll", EntryPoint = "SymLoadModuleEx", SetLastError = true, CharSet = CharSet.Ansi)]
+        private static extern ulong amd64_SymLoadModuleEx(IntPtr hProcess, IntPtr hFile, string ImageName, string ModuleName, ulong BaseOfDll, uint DllSize, IntPtr Data, uint Flags);
 
-        [DllImport("dbghelp.dll", SetLastError = true, CharSet = CharSet.Ansi)]
-        private static extern bool SymGetModuleInfo64(IntPtr hProcess, ulong dwAddr, ref IMAGEHLP_MODULE64 ModuleInfo);
+        [DllImport("dbghelp_amd64.dll", EntryPoint = "SymGetModuleBase64", SetLastError = true)]
+        private static extern ulong amd64_SymGetModuleBase64(IntPtr hProcess, ulong dwAddr);
 
-        [DllImport("dbghelp.dll", SetLastError = true, CharSet = CharSet.Ansi)]
-        private static extern bool SymEnumSymbols(IntPtr hProcess, ulong BaseOfDll, string Mask, SymEnumSymbolsProc EnumSymbolsCallback, IntPtr UserContext);
+        [DllImport("dbghelp_amd64.dll", EntryPoint = "SymGetModuleInfo64", SetLastError = true, CharSet = CharSet.Ansi)]
+        private static extern bool amd64_SymGetModuleInfo64(IntPtr hProcess, ulong dwAddr, ref IMAGEHLP_MODULE64 ModuleInfo);
 
-        [DllImport("dbghelp.dll", SetLastError = true)]
-        private static extern bool SymUnloadModule64(IntPtr hProcess, ulong BaseOfDll);
+        [DllImport("dbghelp_amd64.dll", EntryPoint = "SymEnumSymbols", SetLastError = true, CharSet = CharSet.Ansi)]
+        private static extern bool amd64_SymEnumSymbols(IntPtr hProcess, ulong BaseOfDll, string Mask, SymEnumSymbolsProc EnumSymbolsCallback, IntPtr UserContext);
 
-        [DllImport("dbghelp.dll", SetLastError = true)]
-        private static extern bool SymCleanup(IntPtr hProcess);
+        [DllImport("dbghelp_amd64.dll", EntryPoint = "SymUnloadModule64", SetLastError = true)]
+        private static extern bool amd64_SymUnloadModule64(IntPtr hProcess, ulong BaseOfDll);
+
+        [DllImport("dbghelp_amd64.dll", EntryPoint = "SymCleanup", SetLastError = true)]
+        private static extern bool amd64_SymCleanup(IntPtr hProcess);
+
+        [DllImport(("dbghelp_x86.dll"), EntryPoint = "SymInitialize", SetLastError = true, CharSet = CharSet.Ansi)]
+        private static extern bool x86_SymInitialize(IntPtr hProcess, string UserSearchPath, [MarshalAs(UnmanagedType.Bool)] bool fInvadeProcess);
+
+        [DllImport("dbghelp_x86.dll", EntryPoint = "SymGetOptions", SetLastError = true)]
+        private static extern uint x86_SymGetOptions();
+
+        [DllImport("dbghelp_x86.dll", EntryPoint = "SymSetOptions", SetLastError = true)]
+        private static extern uint x86_SymSetOptions(uint SymOptions);
+
+        [DllImport("dbghelp_x86.dll", EntryPoint = "SymLoadModuleEx", SetLastError = true, CharSet = CharSet.Ansi)]
+        private static extern ulong x86_SymLoadModuleEx(IntPtr hProcess, IntPtr hFile, string ImageName, string ModuleName, ulong BaseOfDll, uint DllSize, IntPtr Data, uint Flags);
+
+        [DllImport("dbghelp_x86.dll", EntryPoint = "SymGetModuleBase64", SetLastError = true)]
+        private static extern ulong x86_SymGetModuleBase64(IntPtr hProcess, ulong dwAddr);
+
+        [DllImport("dbghelp_x86.dll", EntryPoint = "SymGetModuleInfo64", SetLastError = true, CharSet = CharSet.Ansi)]
+        private static extern bool x86_SymGetModuleInfo64(IntPtr hProcess, ulong dwAddr, ref IMAGEHLP_MODULE64 ModuleInfo);
+
+        [DllImport("dbghelp_x86.dll", EntryPoint = "SymEnumSymbols", SetLastError = true, CharSet = CharSet.Ansi)]
+        private static extern bool x86_SymEnumSymbols(IntPtr hProcess, ulong BaseOfDll, string Mask, SymEnumSymbolsProc EnumSymbolsCallback, IntPtr UserContext);
+
+        [DllImport("dbghelp_x86.dll", EntryPoint = "SymUnloadModule64", SetLastError = true)]
+        private static extern bool x86_SymUnloadModule64(IntPtr hProcess, ulong BaseOfDll);
+
+        [DllImport("dbghelp_x86.dll", EntryPoint = "SymCleanup", SetLastError = true)]
+        private static extern bool x86_SymCleanup(IntPtr hProcess);
 
         private delegate bool SymEnumSymbolsProc(IntPtr pSymInfo, uint SymbolSize, IntPtr UserContext);
 
@@ -304,5 +332,114 @@ namespace PdbEnum
 
             SymCleanup(_pHandle);
         }
+
+        private void SymCleanup(IntPtr pHandle)
+        {
+            if (IntPtr.Size == 8)
+            {
+                amd64_SymCleanup(pHandle);
+            }
+            else
+            {
+                x86_SymCleanup(pHandle);
+            }
+        }
+
+        private void SymUnloadModule64(IntPtr pHandle, ulong moduleBase)
+        {
+            if (IntPtr.Size == 8)
+            {
+                amd64_SymUnloadModule64(pHandle, moduleBase);
+            }
+            else
+            {
+                x86_SymUnloadModule64(pHandle, moduleBase);
+            }
+        }
+        private void SymSetOptions(uint options)
+        {
+            if (IntPtr.Size == 8)
+            {
+                amd64_SymSetOptions(options);
+            }
+            else
+            {
+                x86_SymSetOptions(options);
+            }
+        }
+
+        private uint SymGetOptions()
+        {
+            if (IntPtr.Size == 8)
+            {
+                return amd64_SymGetOptions();
+            }
+            else
+            {
+                return x86_SymGetOptions();
+            }
+        }
+
+        private bool SymInitialize(IntPtr pHandle, string symbolPath, bool v)
+        {
+            if (IntPtr.Size == 8)
+            {
+                return amd64_SymInitialize(pHandle, symbolPath, v);
+            }
+            else
+            {
+                return x86_SymInitialize(pHandle, symbolPath, v);
+            }
+        }
+
+        private bool SymGetModuleInfo64(IntPtr pHandle, ulong moduleBase, ref IMAGEHLP_MODULE64 moduleInfo)
+        {
+            if (IntPtr.Size == 8)
+            {
+                return amd64_SymGetModuleInfo64(pHandle, moduleBase, ref moduleInfo);
+            }
+            else
+            {
+                return x86_SymGetModuleInfo64(pHandle, moduleBase, ref moduleInfo);
+            }
+        }
+
+        private ulong SymGetModuleBase64(IntPtr pHandle, ulong baseAddress)
+        {
+            if (IntPtr.Size == 8)
+            {
+                return amd64_SymGetModuleBase64(pHandle, baseAddress);
+            }
+            else
+            {
+                return x86_SymGetModuleBase64(pHandle, baseAddress);
+
+            }
+        }
+
+        private ulong SymLoadModuleEx(IntPtr pHandle, IntPtr zero1, string modulePath, object value, ulong baseAddress, uint size, IntPtr zero2, int v)
+        {
+            if (IntPtr.Size == 8)
+            {
+                return amd64_SymLoadModuleEx(pHandle, zero1, modulePath, null, baseAddress, size, zero2, (uint)v);
+            }
+            else
+            {
+                return x86_SymLoadModuleEx(pHandle, zero1, modulePath, null, baseAddress, size, zero2, (uint)v);
+            }
+        }
+
+        private bool SymEnumSymbols(IntPtr pHandle, ulong moduleBase, string v, SymEnumSymbolsProc callback, IntPtr zero)
+        {
+            if (IntPtr.Size == 8)
+            {
+                return amd64_SymEnumSymbols(pHandle, moduleBase, v, callback, zero);
+            }
+            else
+            {
+                return x86_SymEnumSymbols(pHandle, moduleBase, v, callback, zero);
+            }
+        }
+
     }
 }

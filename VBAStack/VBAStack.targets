@@ -14,8 +14,8 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<IncludeInVsix>true</IncludeInVsix>
 		</Content>
-		<Content Include="$(MSBuildThisFileDirectory)..\runtimes\win-x64\native\dbghelp_x64.dll">
-			<link>runtimes\win-x64\native\dbghelp_x64.dll</link>
+		<Content Include="$(MSBuildThisFileDirectory)..\runtimes\win-x64\native\dbghelp_amd64.dll">
+			<link>runtimes\win-x64\native\dbghelp_amd64.dll</link>
 			<PublishState>Included</PublishState>
 			<Visible>False</Visible>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
