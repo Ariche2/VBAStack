@@ -10,13 +10,29 @@ Imports PdbEnum
 Friend Class VBESymbolResolver
     Private Shared ReadOnly s_SymbolCache As New Dictionary(Of String, IntPtr)
     Private Shared s_VBE7ModuleBase As IntPtr
+    Private Shared s_VBE7ModuleSize As Long
+    Private Shared s_VBE7ModuleEnd As IntPtr
     Private Shared s_VBE7Path As String
     Private Shared s_PdbEnumPath As String
     Private Shared s_Initialized As Boolean
+    Public Shared SymsToGet As New List(Of String) From {
+        "EbMode",
+        "EbSetMode",
+        "EbGetCallstackCount",
+        "ErrGetCallstackString",
+        "ExecGetExframeTOS"
+    }
 
 #Region "Win32 Imports"
     Private Declare Function GetModuleHandle Lib "kernel32.dll" Alias "GetModuleHandleA" (ByVal lpModuleName As String) As IntPtr
     Private Declare Function GetModuleFileName Lib "kernel32.dll" Alias "GetModuleFileNameA" (ByVal hModule As IntPtr, ByVal lpFilename As StringBuilder, ByVal nSize As Integer) As Integer
+    Private Declare Function GetModuleInformation Lib "psapi.dll" (hProcess As IntPtr, hModule As IntPtr, ByRef lpmodinfo As ModuleInfo, cb As UInteger) As Boolean
+    <StructLayout(LayoutKind.Sequential)>
+    Private Structure ModuleInfo
+        Public lpBaseOfDll As IntPtr
+        Public SizeOfImage As UInteger
+        Public EntryPoint As IntPtr
+    End Structure
 #End Region
 
 #Region "Initialization"
@@ -36,6 +52,16 @@ Friend Class VBESymbolResolver
             Else
                 Throw New Exception("Could not get VBE7.DLL path. GetModuleFileName returned 0. Win32 Error: " & Marshal.GetLastWin32Error())
             End If
+
+            Dim modInfo As ModuleInfo
+            Dim currentProcess As IntPtr = Process.GetCurrentProcess().Handle
+            If GetModuleInformation(currentProcess, s_VBE7ModuleBase, modInfo, CUInt(Marshal.SizeOf(GetType(ModuleInfo)))) Then
+                s_VBE7ModuleSize = CLng(modInfo.SizeOfImage)
+                s_VBE7ModuleEnd = IntPtr.Add(s_VBE7ModuleBase, CInt(s_VBE7ModuleSize))
+            Else
+                Throw New Exception("Could not get VBE7.DLL module information. Win32 Error: " & Marshal.GetLastWin32Error())
+            End If
+
         End If
 
         Return s_VBE7ModuleBase
@@ -101,15 +127,19 @@ Friend Class VBESymbolResolver
             Throw New Exception("PdbEnum.exe not found")
         End If
 
-        If s_SymbolCache.ContainsKey("EbMode") AndAlso
-           s_SymbolCache.ContainsKey("EbSetMode") AndAlso
-           s_SymbolCache.ContainsKey("EbGetCallstackCount") AndAlso
-           s_SymbolCache.ContainsKey("ErrGetCallstackString") Then
-            s_Initialized = True
+        For Each sym In SymsToGet
+            If Not s_SymbolCache.ContainsKey(sym) OrElse s_SymbolCache(sym) = IntPtr.Zero Then
+                s_Initialized = False
+                Exit For
+            End If
+        Next
+
+        If s_Initialized Then
             Return True
         End If
 
-        Dim symbolNames As String() = {"EbMode", "EbSetMode", "EbGetCallstackCount", "ErrGetCallstackString"}
+        ' Core symbols needed for basic operation
+        Dim symbolNames As String() = SymsToGet.ToArray()
         Dim batchResult As BatchSymbolSearchResult = CallPdbEnumBatch(symbolNames)
 
         If Not batchResult.Success OrElse batchResult.Symbols Is Nothing Then
@@ -121,9 +151,9 @@ Friend Class VBESymbolResolver
             If symbolResult.Success AndAlso symbolResult.Symbol IsNot Nothing Then
                 Dim symbolPtr As New IntPtr(CLng(symbolResult.Symbol.Address))
                 s_SymbolCache(symbolResult.SearchedSymbolName) = symbolPtr
-                VBAStackLogger.LogDebug($"[VBESymbolResolver] Resolved {symbolResult.SearchedSymbolName} -> {symbolResult.Symbol.Address:X}")
+                VBAStackLogger.LogDebug($"[VBESymbolResolver] Resolved {symbolResult.SearchedSymbolName} -> 0x{symbolResult.Symbol.Address:X}")
             Else
-                VBAStackLogger.LogError($"[VBESymbolResolver] Failed to resolve {symbolResult.SearchedSymbolName}")
+                VBAStackLogger.LogWarning($"[VBESymbolResolver] Failed to resolve {symbolResult.SearchedSymbolName}")
             End If
         Next
 
@@ -156,7 +186,7 @@ Friend Class VBESymbolResolver
         Dim symbolPtr As New IntPtr(CLng(result.Symbol.Address))
         s_SymbolCache(symbolName) = symbolPtr
 
-        VBAStackLogger.LogDebug($"[VBESymbolResolver] Resolved {symbolName} -> {result.Symbol.Address:X}")
+        VBAStackLogger.LogDebug($"[VBESymbolResolver] Resolved {symbolName} -> 0x{result.Symbol.Address:X}")
         Return symbolPtr
     End Function
 #End Region
@@ -336,10 +366,10 @@ Friend Class VBESymbolResolver
 
         'Did any of the checks pass?
         If Not HasINT3PaddingBytes AndAlso Not HasNOPPaddingBytes AndAlso Not HasPrecedingRET Then
-            VBAStackLogger.LogError($"[VBESymbolResolver] {functionName}: Function pointer verification failed at 0x{functionPtr:X}")
+            VBAStackLogger.LogError($"[VBESymbolResolver] {functionName}: Function pointer verification failed at 0x{functionPtr.ToInt64():X}")
             Return False
         Else
-            VBAStackLogger.LogDebug($"[VBESymbolResolver] {functionName}: Successfully verified 0xCC padding at 0x{functionPtr:X}")
+            VBAStackLogger.LogDebug($"[VBESymbolResolver] {functionName}: Successfully verified 0xCC padding at 0x{functionPtr.ToInt64():X}")
             Return True
         End If
 
@@ -354,7 +384,7 @@ Friend Class VBESymbolResolver
             Return False
         End If
 
-        Dim symbolNames As String() = {"EbMode", "EbSetMode", "EbGetCallstackCount", "ErrGetCallstackString"}
+        Dim symbolNames As String() = SymsToGet.ToArray()
         Dim allValid As Boolean = True
 
         For Each symbolName In symbolNames
@@ -369,7 +399,7 @@ Friend Class VBESymbolResolver
                 Return False
             End If
 
-            VBAStackLogger.LogDebug($"[VBESymbolResolver] {symbolName}: 0x{ptr.ToString("X")}")
+            VBAStackLogger.LogDebug($"[VBESymbolResolver] {symbolName}: 0x{ptr.ToInt64():X}")
             allValid = allValid And VerifyFunctionPointer(ptr, symbolName)
         Next
 
@@ -380,6 +410,10 @@ Friend Class VBESymbolResolver
         End If
 
         Return allValid
+    End Function
+
+    Friend Shared Function IsAddressInModule(potentialAddress As IntPtr) As Boolean
+        Return potentialAddress.ToInt64() >= s_VBE7ModuleBase.ToInt64() AndAlso potentialAddress.ToInt64() < s_VBE7ModuleEnd.ToInt64()
     End Function
 #End Region
 End Class

@@ -1,0 +1,234 @@
+﻿All tables are formatted as follows,
+
+Offset;Name;Description
+
+
+The following are the work of Alex Ionescu, with some of my own notes sprinkled in;
+
+
+    Project information
+    Symbol name; Unknown to me
+    RE Community name; Unknown to me
+    Size; 0x23C bytes.
+    The Project Information structure is pointed by the VB Header. It contains user information about the project as well as critical information (such as a pointer to the Object Table). It is also heavily used for compilation statistics.
+
+    0x0;dwVersion;5.00 in Hex (0x1F4). Version.
+    0x4;lpObjectTable;Pointer to the Object Table
+    0x8;dwNull;Unused value after compilation.
+    0xC;lpCodeStart;Points to start of code. Unused.
+    0x10;lpCodeEnd;Points to end of code. Unused.
+    0x14;dwDataSize;Size of VB Object Structures. Unused.
+    0x18;lpThreadSpace;Pointer to Pointer to Thread Object.
+    0x1C;lpVbaSeh;Pointer to VBA Exception Handler
+    0x20;lpNativeCode;Pointer to .DATA section.
+    0x24;szPathInformation;Contains Path and ID string. < SP6
+    0x234;lpExternalTable;Pointer to External Table.
+    0x238;dwExternalCount;Objects in the External Table.
+
+
+    Secondary project information
+    Symbol name; Unknown to me
+    RE Community name; Unknown to me
+    Size; 0x28 bytes.
+    This Secondary structure, pointed by the Object Table contains mostly data used when compiling the project. It does also however pave the way to the Form List (To be described later) and gives the elusive Help Context ID.
+
+    0x0;lpHeapLink;Unused after compilation, always 0.
+    0x4;lpObjectTable;Back-Pointer to the Object Table.
+    0x8;dwReserved;Always set to -1 after compiling. Unused
+    0xC;dwUnused;Not written or read in any case.
+    0x10;lpObjectList;Pointer to Object Descriptor Pointers.
+    0x14;dwUnused2;Not written or read in any case.
+    0x18;szProjectDescription;Pointer to Project Description
+    0x1C;szProjectHelpFile;Pointer to Project Help File
+    0x20;dwReserved2;Always set to -1 after compiling. Unused
+    0x24;dwHelpContextId;Help Context ID set in Project Settings.
+
+
+    Object Table
+    Symbol name; Unknown to me
+    RE Community name; Unknown to me
+    Size; 0x54 bytes.
+    The Object Table structure is pointed by the Project Info Structure. It contains points to the Object Array, as well as more repeated Project Data (presumably so it can be read quickly from here). Some values are also only used when running the project in memory (in the IDE).
+
+    0x0;lpHeapLink;Unused after compilation, always 0.
+    0x4;lpExecProj;Pointer to VB Project Exec COM Object. <- Alex seemed to know what ExecProj was, but it isn't in here?
+    0x8;lpProjectInfo2;Secondary Project Information.
+    0xC;dwReserved;Always set to -1 after compiling. Unused
+    0x10;dwNull;Not used in compiled mode.
+    0x14;lpProjectObject;Pointer to in-memory Project Data.
+    0x18;uuidObject;GUID of the Object Table.
+    0x28;fCompileState;Internal flag used during compilation.
+    0x2A;dwTotalObjects;Total objects present in Project.
+    0x2C;dwCompiledObjects;Equal to above after compiling.
+    0x2E;dwObjectsInUse;Usually equal to above after compile.
+    0x30;lpObjectArray;Pointer to Object Descriptors
+    0x34;fIdeFlag;Flag/Pointer used in IDE only.
+    0x38;lpIdeData;Flag/Pointer used in IDE only.
+    0x3C;lpIdeData2;Flag/Pointer used in IDE only.
+    0x40;lpszProjectName;Pointer to Project Name.
+    0x44;dwLcid;LCID of Project.
+    0x48;dwLcid2;Alternate LCID of Project.
+    0x4C;lpIdeData3;Flag/Pointer used in IDE only.
+    0x50;dwIdentifier;Template Version of Structure.
+
+
+    Private Object Descriptor
+    Symbol name; Unknown to me
+    RE Community name; Unknown to me
+    Size; 0x40 bytes.
+    The Private Object Descriptor Table is pointed by an array defined in the Object List Pointer in the Secondary Project Information. The whole structure can be deleted after compilation.
+
+    0x0;lpHeapLink;Unused after compilation, always 0.
+    0x4;lpObjectInfo;Pointer to the Object Info for this Object.
+    0x8;dwReserved;Always set to -1 after compiling.
+    0xC;dwIdeData[3];Not valid after compilation.
+    0x18;lpObjectList;Points to the Parent Structure (Array)
+    0x1C;dwIdeData2;Not valid after compilation.
+    0x20;lpObjectList2[3];Points to the Parent Structure (Array).
+    0x2C;dwIdeData3[3];Not valid after compilation.
+    0x38;dwObjectType;Type of the Object described.
+    0x3C dwIdentifier Template Version of Structure.
+
+
+    Public Object Descriptor
+    Symbol name; Unknown to me
+    RE Community name; Unknown to me
+    Size; 0x30 bytes.
+    The Public Object Descriptor Table is pointed by the Array lpObjectArray in the Object Table. Each Object in the project will have its own. Unlike the private structure, this one is actually used by VB for a variety of tasks.
+
+    0x0;lpObjectInfo;Pointer to the Object Info for this Object.
+    0x4;dwReserved;Always set to -1 after compiling.
+    0x8;lpPublicBytes;Pointer to Public Variable Size integers.
+    0xC;lpStaticBytes;Pointer to Static Variable Size integers.
+    0x10;lpModulePublic;Pointer to Public Variables in DATA section
+    0x14;lpModuleStatic;Pointer to Static Variables in DATA section
+    0x18;lpszObjectName;Name of the Object.
+    0x1C;dwMethodCount;Number of Methods in Object.
+    0x20;lpMethodNames;If present, pointer to Method names array.
+    0x24;bStaticVars;Offset to where to copy Static Variables.
+    0x28;fObjectType;Flags defining the Object Type.
+    0x2C;dwNull;Not valid after compilation.
+
+
+    Object Info
+    Symbol name; epiModule?
+    RE Community name; ObjectInfo
+    Size; 0x38 bytes.
+    The Object Information structure defines an Object and provides various information to its methods and constants (in Pseudo Code).
+
+    0x0;wRefCount;Always 1 after compilation.
+    0x2;wObjectIndex;Index of this Object.
+    0x4;lpObjectTable;Pointer to the Object Table
+    0x8;lpIdeData;Zero after compilation. Used in IDE only.
+    0xC;lpPrivateObject;Pointer to Private Object Descriptor.
+    0x10;dwReserved;Always -1 after compilation.
+    0x14;dwNull;Unused.
+    0x18;lpObject;Back-Pointer to Public Object Descriptor.
+    0x1C;lpProjectData;Pointer to in-memory Project Object.
+    0x20;wMethodCount;Number of Methods
+    0x22;wMethodCount2;Zeroed out after compilation. IDE only.
+    0x24;lpMethods;Pointer to Array of Methods.
+    0x28;wConstants;Number of Constants in Constant Pool.
+    0x2A;wMaxConstants;Constants to allocate in Constant Pool.
+    0x2C;lpIdeData2;Valid in IDE only.
+    0x30;lpIdeData3;Valid in IDE only.
+    0x34;lpConstants;Pointer to Constants Pool.
+
+
+    Optional object info
+    Symbol name; Unknown to me
+    RE Community name; Unknown to me
+    Size; 0x40 bytes.
+    The Optional Object Information structure, present only for COM Objects (anything but a Module) defines some GUIDs as well as other useful Form Information, and points to Controls.
+
+    0x0;dwObjectGuids;How many GUIDs to Register. 2 = Designer
+    0x4;lpObjectGuid;Unique GUID of the Object *VERIFY*
+    0x8;dwNull;Unused.
+    0xC;lpuuidObjectTypes;Pointer to Array of Object Interface GUIDs
+    0x10;dwObjectTypeGuids;How many GUIDs in the Array above.
+    0x14;lpControls2;Usually the same as lpControls.
+    0x18;dwNull2;Unused.
+    0x1C;lpObjectGuid2;Pointer to Array of Object GUIDs.
+    0x20;dwControlCount;Number of Controls in array below.
+    0x24;lpControls;Pointer to Controls Array.
+    0x28;wEventCount;Number of Events in Event Array.
+    0x2A;wPCodeCount;Number of P-Codes used by this Object.
+    0x2C;bWInitializeEvent;Offset to Initialize Event from Event Table.
+    0x2E;bWTerminateEvent;Offset to Terminate Event in Event Table.
+    0x30;lpEvents;Pointer to Events Array.
+    0x34;lpBasicClassObject;Pointer to in-memory Class Objects.
+    0x38;dwNull3;Unused.
+    0x3C;lpIdeData;Only valid in IDE.
+
+
+    Control Info
+    Symbol name; Unknown to me
+    RE Community name; Unknown to me
+    Size; 0x28 bytes.
+    The Control Information Structure contains data about each control on the Form, and points to the Event Handler Table for this Control.
+
+    0x0;fControlType;Type of control.
+    0x4;wEventcount;Number of Event Handlers supported.
+    0x6;bWEventsOffset;Offset in to Memory struct to copy Events.
+    0x8;lpGuid;Pointer to GUID of this Control.
+    0xC;dwIndex;Index ID of this Control.
+    0x10;dwNull;Unused.
+    0x14;dwNull2;Unused.
+    0x18;lpEventTable;Pointer to Event Handler Table.
+    0x1C;lpIdeData;Valid in IDE only.
+    0x20;lpszName;Name of this Control.
+    0x24;dwIndexCopy;Secondary Index ID of this Control.
+
+
+These ones are a mix of my own work and information garnered from various sources / forum posts online;
+
+
+    Runtime Method Information
+    Symbol name; RTMI
+    RE Community name; ProcDscInfo
+    Size; Unsure, minimum 0x10 bytes but Ghidra seems to think might be much larger.
+    Contains information about a given method
+
+    0x0;lpParentObjectInfo;Link back to the "object info" of the object the method belongs to.
+    0x4;argSz;Stack cleanup size - combined length of all arguments.
+    0x6;FrameSize; ..Unsure
+    0x8;ProcSize; Length of the method's code
+
+
+    Execution frame
+    Symbol name; ExFrame
+    RE Community name; Unknown to me
+    Size; Unsure, minimum 0x4B bytes
+    Contains details about each frame of execution of the VB/A code.
+
+    0x0;lpNextFrame;The next ExFrame in the linked list (Get the top of the list by calling "ExecGetExframeTOS")
+    0x4;un4Unknown;Used by the internal function BASIC_TYPESRC::GetFrameNames as part of getting function names for the callstack window in the IDE. Dead end if you're trying to do that outside the IDE though.
+    0x8;un4Unknown2;No info on this one
+    0xC;lpRTMI;Pointer to the RTMI object for this ExFrame.
+    0x10;un4Unknown3;No info on this one
+    0x14;dwFlags;Only flag I know of is 0x400 - means the ExFrame was called by the debugger (I assume via the immediate window)
+    0x18;lpEbThread;Pointer to EbThread object - unsure what it's used for
+    0x1C;un4Unknown4;Pointer to a byte; checked for 0 or -1 values. Unsure of use.
+    0x20;un4Unknown5;No info on this one
+    0x24;un4Unknown6;No info on this one
+    0x28;iLocalVars;Count of local variables in this frame.
+    0x2C;un4Unknown7;No info on this one
+    0x30;un4Unknown8;No info on this one
+    0x34;un4Unknown9;No info on this one
+    0x38;un4Unknown10;No info on this one
+    0x3C;un4Unknown11;No info on this one
+    0x40;un4Unknown12;No info on this one
+    0x44;un4Unknown13;No info on this one
+    0x48;lpCurrentIP;Pointer to current instruction pointer
+
+
+    ExecProj
+    Symbol name; ExecProj
+    RE Community name; Unknown to me
+    Size; Unsure, minimum 0x10 bytes
+
+
+    0x0;un4Unknown;No info on this one
+    0x4;un4Unknown2;No info on this one
+    0x8;lpGEN_PROJECT;Pointer to GEN_PROJECT object
+    0xC;lpEpiProject;Pointer to epiProject object

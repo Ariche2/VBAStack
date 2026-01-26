@@ -19,7 +19,7 @@
     <RepositoryUrl>https://github.com/Ariche2/VBAStack</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>VBA</PackageTags>
-    <PackageVersion>1.0.0.13-prerelease</PackageVersion>
+    <PackageVersion>1.0.0.14-050-prerelease</PackageVersion>
     <PackageDescription>A library for retrieving VBA callstack information at runtime from Office applications</PackageDescription>
     <RuntimeIdentifiers>win</RuntimeIdentifiers>
   </PropertyGroup>
@@ -79,8 +79,11 @@
     <Compile Include="My Project\AssemblyInfo.vb" />
     <Compile Include="VBAStackLogger.vb" />
     <Compile Include="VBECallstackProvider.vb" />
+    <Compile Include="VBEDirectCallstackReader.vb" />
     <Compile Include="VBEEnums.vb" />
     <Compile Include="VBENativeWrapper.vb" />
+    <Compile Include="VBEStructures.vb" />
+    <Compile Include="VBEStructures_AnyCPU.vb" />
     <Compile Include="VBESymbolResolver.vb" />
     <Compile Include="VBEWindowHook.vb" />
   </ItemGroup>
@@ -106,15 +109,15 @@
       <Name>PdbEnum</Name>
     </ProjectReference>
   </ItemGroup>
-	<PropertyGroup>
-		<!--MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3270</MSBuildWarningsAsMessages-->
-	</PropertyGroup>
+  <PropertyGroup>
+    <!--MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3270</MSBuildWarningsAsMessages-->
+  </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\PdbEnum\PdbEnum_x64.csproj" PrivateAssets="all" ReferenceOutputAssembly="false" >
+    <ProjectReference Include="..\PdbEnum\PdbEnum_x64.csproj" PrivateAssets="all" ReferenceOutputAssembly="false">
       <Project>{80AA98B0-EB03-427C-8F95-68A422269A0A}</Project>
       <Name>PdbEnum_x64</Name>
     </ProjectReference>
-    <ProjectReference Include="..\PdbEnum\PdbEnum_x86.csproj" PrivateAssets="all" ReferenceOutputAssembly="false" >
+    <ProjectReference Include="..\PdbEnum\PdbEnum_x86.csproj" PrivateAssets="all" ReferenceOutputAssembly="false">
       <Project>{EF2D58F9-5861-47D5-B17C-09F2C228ACFF}</Project>
       <Name>PdbEnum_x86</Name>
     </ProjectReference>
@@ -151,14 +154,14 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="..\PdbEnum\bin\$(Configuration)\PdbEnum_x64.exe">
-	  <link>runtimes\win-x64\native\PdbEnum_x64.exe</link>
+      <link>runtimes\win-x64\native\PdbEnum_x64.exe</link>
       <Pack>true</Pack>
       <PackagePath>runtimes\win-x64\native\PdbEnum_x64.exe</PackagePath>
       <PackageCopyToOutput>true</PackageCopyToOutput>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="..\PdbEnum\bin\$(Configuration)\PdbEnum_x86.exe">
-	  <link>runtimes\win-x86\native\PdbEnum_x86.exe</link>
+      <link>runtimes\win-x86\native\PdbEnum_x86.exe</link>
       <Pack>true</Pack>
       <PackagePath>runtimes\win-x86\native\PdbEnum_x86.exe</PackagePath>
       <PackageCopyToOutput>true</PackageCopyToOutput>
@@ -172,5 +175,8 @@
       <Pack>True</Pack>
       <PackagePath>\build\</PackagePath>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Notes_on_VB_Structures.txt" />
   </ItemGroup>
 </Project>

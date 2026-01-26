@@ -55,6 +55,7 @@ Friend Class VBENativeWrapper
             Return s_ErrGetCallstackStringPtr
         End Get
     End Property
+
 #End Region
 
 #Region "Native Function Wrappers"

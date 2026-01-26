@@ -29,6 +29,13 @@ Public Class VBECallstackProvider
     ''' <param name="vbe">A VBE object from an Office application.</param>
     ''' <returns>A formatted string containing the callstack, or an error message.</returns>
     Public Shared Function GetCallstack(vbe As Object, Optional ExcludeNonBasicCodeFrames As Boolean = False) As String
+
+        'Try the direct method first since it's quicker
+        Try
+            Return GetCallstackDirect(vbe, ExcludeNonBasicCodeFrames)
+        Catch
+        End Try
+
         Dim originalVisibility As Boolean
 
         ' Validate VBE version and check if it's currently visible
@@ -125,4 +132,59 @@ Public Class VBECallstackProvider
 
         Return result.ToString()
     End Function
+
+    ''' <summary>
+    ''' Gets the current VBA callstack using direct structure walking (experimental).
+    ''' This method walks VBE internal structures directly without calling ErrGetCallstackString.
+    ''' </summary>
+    ''' <param name="vbe">A VBE object from an Office application.</param>
+    ''' <param name="ExcludeNonBasicCodeFrames">Whether to exclude non-basic code frames.</param>
+    ''' <returns>A formatted string containing the callstack, or an error message.</returns>
+    Public Shared Function GetCallstackDirect(vbe As Object, Optional ExcludeNonBasicCodeFrames As Boolean = False) As String
+        ' Validate VBE version and check if it's currently visible
+        Try
+            If CStr(vbe.Version).FirstOrDefault() <> "7"c Then
+                Return "VBE version is less than 7.0 - VBAStack only works with VBE7+"
+            End If
+        Catch ex As Exception
+            Throw New Exception("Could not access VBE object. See inner exception.", ex)
+        End Try
+
+        If Not VerifyPointers() Then
+            Throw New Exception("Could not get pointers to necessary VBE7 functions")
+        End If
+
+        Dim result As String = VBEDirectCallstackReader.GetFormattedCallstack(ExcludeNonBasicCodeFrames)
+
+        Return result
+    End Function
+
+    ''' <summary>
+    ''' Gets the currently executing VBA function in the format "ModuleName::ProcedureName".
+    ''' </summary>
+    ''' <param name="vbe">A VBE object from an Office application.</param>
+    ''' <returns>A string in the format "ModuleName::ProcedureName", or an error message.</returns>
+    Public Shared Function GetCurrentFunction(vbe As Object, Optional IncludeProjectName As Boolean = False) As String
+        ' Validate VBE version
+        Try
+            If CStr(vbe.Version).FirstOrDefault() <> "7"c Then
+                Return "VBE version is less than 7.0 - VBAStack only works with VBE7+"
+            End If
+        Catch ex As Exception
+            Throw New Exception("Could not access VBE object. See inner exception.", ex)
+        End Try
+
+        If Not VerifyPointers() Then
+            Throw New Exception("Could not get pointers to necessary VBE7 functions")
+        End If
+
+        Try
+            Dim result As String = VBEDirectCallstackReader.GetCurrentFunction.ToString(IncludeProjectName)
+            Return result
+        Catch ex As Exception
+            Throw New Exception("Could not get current function. See inner exception.", ex)
+        End Try
+    End Function
+
+
 End Class
