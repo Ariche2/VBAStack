@@ -33,6 +33,7 @@ namespace PdbEnum_x86
         {
             OutputFormat outputFormat = OutputFormat.Human;
             bool quietMode = false;
+            bool addressLookupMode = false;
             int argOffset = 0;
 
             // Parse optional flags
@@ -50,6 +51,10 @@ namespace PdbEnum_x86
                     case "-q":
                     case "-quiet":
                         quietMode = true;
+                        break;
+                    case "-addr":
+                    case "-address":
+                        addressLookupMode = true;
                         break;
                     default:
                         Console.Error.WriteLine($"Unknown flag: {args[argOffset]}");
@@ -74,7 +79,7 @@ namespace PdbEnum_x86
 
             string moduleName = args[argOffset + 1];
 
-            // Collect all remaining arguments as symbol names
+            // Collect all remaining arguments as symbol names or addresses
             List<string> symbolNames = new();
             for (int i = argOffset + 2; i < args.Length; i++)
             {
@@ -83,7 +88,14 @@ namespace PdbEnum_x86
 
             try
             {
-                FindSymbols(processId, moduleName, symbolNames, outputFormat, quietMode);
+                if (addressLookupMode)
+                {
+                    FindSymbolsByAddress(processId, moduleName, symbolNames, outputFormat, quietMode);
+                }
+                else
+                {
+                    FindSymbols(processId, moduleName, symbolNames, outputFormat, quietMode);
+                }
             }
             catch (Exception ex)
             {
@@ -94,32 +106,40 @@ namespace PdbEnum_x86
                 }
                 Environment.Exit(1);
             }
+
+            if (Debugger.IsAttached)
+            {
+                Debugger.Break();
+            }
         }
 
         static void ShowUsage()
         {
             Console.WriteLine("PdbEnum - Symbol Enumerator using DbgHelp");
             Console.WriteLine();
-            Console.WriteLine("Usage: PdbEnum.exe [options] <ProcessID> <ModuleName> <SymbolName> [<SymbolName2> ...]");
+            Console.WriteLine("Usage: PdbEnum.exe [options] <ProcessID> <ModuleName> <SymbolName|Address> [<SymbolName2|Address2> ...]");
             Console.WriteLine();
             Console.WriteLine("Options:");
             Console.WriteLine("  -json       Output in JSON format");
             Console.WriteLine("  -xml        Output in XML format");
             Console.WriteLine("  -q, -quiet  Suppress informational messages (useful with structured output)");
+            Console.WriteLine("  -addr       Lookup symbols by address instead of name");
             Console.WriteLine();
             Console.WriteLine("Arguments:");
             Console.WriteLine("  ProcessID   - The ID of the process containing the module");
             Console.WriteLine("  ModuleName  - The name of the module (e.g., ntdll.dll)");
             Console.WriteLine("  SymbolName  - One or more symbol names to search for (case-insensitive, partial match)");
+            Console.WriteLine("  Address     - One or more addresses (hex) when using -addr flag");
             Console.WriteLine();
             Console.WriteLine("Examples:");
             Console.WriteLine("  PdbEnum.exe 1234 ntdll.dll NtCreateFile");
             Console.WriteLine("  PdbEnum.exe -json 1234 ntdll.dll NtCreateFile");
             Console.WriteLine("  PdbEnum.exe -xml -quiet 1234 kernel32.dll CreateFile");
             Console.WriteLine("  PdbEnum.exe -json 1234 VBE7.DLL EbMode EbSetMode EbGetCallstackCount");
+            Console.WriteLine("  PdbEnum.exe -json -addr 1234 VBE7.DLL 0x18001234 0x18005678");
             Console.WriteLine();
             Console.WriteLine("Symbol Path:");
-            Console.WriteLine("  Default: SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols");
+            Console.WriteLine("  Default: SRV*C:\\\\Symbols*https://msdl.microsoft.com/download/symbols");
             Console.WriteLine("  Set _NT_SYMBOL_PATH environment variable to override");
         }
 
@@ -136,7 +156,7 @@ namespace PdbEnum_x86
             {
                 throw new InvalidOperationException($"Failed to find {dbghelpName} in the application directory.");
             }
-            log.WriteLine($"Loading {dbghelpName}...");
+            log.WriteLine($"Loading {dbghelpPath}...");
             try
             {
                 hinstDbgHelp = LoadLibraryEx(dbghelpPath, IntPtr.Zero, 0);
@@ -184,12 +204,16 @@ namespace PdbEnum_x86
                     log.WriteLine();
                 }
 
-                string symbolPath = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH");
-                if (string.IsNullOrEmpty(symbolPath))
-                {
-                    //Little known fact; you can do "symsrv*DLLNAME*blahblah" to load a custom symbol server DLL. Here we use the appropriate symsrv DLL for the architecture.
-                    symbolPath = "symsrv*symsrv_" + (IntPtr.Size == 8 ? "amd64" : "x86") + ".dll*C:\\Symbols*https://msdl.microsoft.com/download/symbols";
-                }
+                //string symbolPath = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH");
+                //if (string.IsNullOrEmpty(symbolPath))
+                //{
+                string tempPath = Path.GetTempPath();
+                string cacheDir = Path.Combine(tempPath, "PdbEnum_Symbols");
+                Directory.CreateDirectory(cacheDir);
+                string bitness = IntPtr.Size == 8 ? "amd64" : "x86";
+                //Little known fact; you can do "symsrv*DLLNAME*blahblah" to load a custom symbol server DLL. Here we use the appropriate symsrv DLL for the architecture.
+                string symbolPath = $"symsrv*symsrv_{bitness}.dll*{cacheDir}*https://msdl.microsoft.com/download/symbols";
+                //}
 
                 log.WriteLine($"Symbol Path: {symbolPath}");
                 log.WriteLine();
@@ -232,6 +256,166 @@ namespace PdbEnum_x86
                             SearchedSymbolName = symbolName
                         };
 
+                        batchResult.Symbols.Add(symbolResult);
+                    }
+
+                    batchResult.Success = true;
+                    OutputFormatter.WriteBatchResult(batchResult, outputFormat, Console.Out);
+                }
+                catch (Exception ex)
+                {
+                    log.WriteLine(ex.ToString());
+                    throw;
+                }
+                finally
+                {
+                    enumerator.Cleanup();
+                }
+            }
+            finally
+            {
+                if (processHandle != IntPtr.Zero)
+                {
+                    CloseHandle(processHandle);
+                }
+            }
+        }
+
+        static void FindSymbolsByAddress(int processId, string moduleName, List<string> addressStrings, OutputFormat outputFormat, bool quietMode)
+        {
+            TextWriter log = quietMode ? TextWriter.Null : Console.Error;
+            SymbolEnumerator.SetQuietMode(quietMode);
+
+            LoadDbgHelp(log);
+
+            log.WriteLine($"Opening process {processId}...");
+            IntPtr processHandle = OpenProcess(
+                PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+                false,
+                (uint)processId);
+
+            if (processHandle == IntPtr.Zero)
+            {
+                int error = Marshal.GetLastWin32Error();
+                throw new InvalidOperationException($"Failed to open process {processId}. Error: {error}. Make sure you have appropriate permissions.");
+            }
+
+            BatchSymbolSearchResult batchResult = new() { Success = false };
+
+            try
+            {
+                log.WriteLine($"Finding module '{moduleName}'...");
+                ModuleInfo moduleInfo = ModuleHelper.GetModuleInfo(processHandle, moduleName) ?? throw new InvalidOperationException($"Module '{moduleName}' not found in process {processId}");
+                batchResult.Module = moduleInfo;
+
+                if (outputFormat == OutputFormat.Human)
+                {
+                    log.WriteLine(moduleInfo.ToString());
+                    log.WriteLine();
+                }
+
+                //string symbolPath = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH");
+                //if (string.IsNullOrEmpty(symbolPath))
+                //{
+                string tempPath = Path.GetTempPath();
+                string cacheDir = Path.Combine(tempPath, "PdbEnum_Symbols");
+                Directory.CreateDirectory(cacheDir);
+                string bitness = IntPtr.Size == 8 ? "amd64" : "x86";
+                //Little known fact; you can do "symsrv*DLLNAME*blahblah" to load a custom symbol server DLL. Here we use the appropriate symsrv DLL for the architecture.
+                string symbolPath = $"symsrv*symsrv_{bitness}.dll*{cacheDir}*https://msdl.microsoft.com/download/symbols";
+                //}
+
+                log.WriteLine($"Symbol Path: {symbolPath}");
+                log.WriteLine();
+
+                SymbolEnumerator enumerator = new(processHandle);
+
+                try
+                {
+                    log.WriteLine("Initializing symbol handler...");
+                    enumerator.InitializeSymbols(symbolPath);
+
+                    log.WriteLine($"Loading symbols for '{moduleInfo.Name}'...");
+                    log.WriteLine("(This may take a while if PDB needs to be downloaded)");
+                    enumerator.LoadModule(moduleInfo.FullPath, moduleInfo.BaseAddress, moduleInfo.Size);
+
+                    PdbInfo pdbInfo = enumerator.GetPdbInfo();
+                    batchResult.PdbInfo = pdbInfo;
+
+                    if (outputFormat == OutputFormat.Human)
+                    {
+                        log.WriteLine();
+                        log.WriteLine(pdbInfo.ToString());
+                        log.WriteLine();
+                    }
+
+                    log.WriteLine($"Looking up {addressStrings.Count} addresses...");
+                    log.WriteLine();
+
+                    // Look up each address
+                    batchResult.Symbols = new List<SymbolSearchResult>();
+                    List<ulong> addresses = new();
+                    foreach (string addressStr in addressStrings)
+                    {
+                        log.WriteLine($"  Looking up address '{addressStr}'...");
+
+                        // Parse address (support both decimal and hex)
+                        ulong address;
+                        if (addressStr.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (!ulong.TryParse(addressStr.Substring(2), System.Globalization.NumberStyles.HexNumber, null, out address))
+                            {
+                                log.WriteLine($"  Failed to parse address: {addressStr}");
+                                batchResult.Symbols.Add(new SymbolSearchResult
+                                {
+                                    Success = false,
+                                    SearchedSymbolName = addressStr,
+                                    ErrorMessage = "Failed to parse address"
+                                });
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            if (!ulong.TryParse(addressStr, out address))
+                            {
+                                log.WriteLine($"  Failed to parse address: {addressStr}");
+                                batchResult.Symbols.Add(new SymbolSearchResult
+                                {
+                                    Success = false,
+                                    SearchedSymbolName = addressStr,
+                                    ErrorMessage = "Failed to parse address"
+                                });
+                                continue;
+                            }
+                        }
+
+                        addresses.Add(address);
+
+                        //SymbolInfo symbol = enumerator.FindSymbolsAtAddress(address);
+
+                        //SymbolSearchResult symbolResult = new()
+                        //{
+                        //    Success = symbol != null,
+                        //    Symbol = symbol,
+                        //    SearchedSymbolName = addressStr
+                        //};
+
+                        //batchResult.Symbols.Add(symbolResult);
+                    }
+
+                    // Perform batch address lookup
+                    List<SymbolInfo> symbols = enumerator.FindSymbolsAtAddresses(addresses);
+                    for (int i = 0; i < addresses.Count; i++)
+                    {
+                        SymbolInfo symbol = symbols[i];
+                        string addressStr = addressStrings[i];
+                        SymbolSearchResult symbolResult = new()
+                        {
+                            Success = symbol != null,
+                            Symbol = symbol,
+                            SearchedSymbolName = addressStr
+                        };
                         batchResult.Symbols.Add(symbolResult);
                     }
 

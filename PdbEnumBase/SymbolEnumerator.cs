@@ -282,6 +282,67 @@ namespace PdbEnum
             return foundSymbol;
         }
 
+        public List<SymbolInfo> FindSymbolsAtAddresses(List<ulong> addresses)
+        {
+            if (!_symbolsLoaded)
+            {
+                throw new InvalidOperationException("Module not loaded. Call LoadModule first.");
+            }
+            int symbolsToFind = addresses.Count;
+            int foundSymbols = 0;
+            List<SymbolInfo> retList = new();
+            foreach (ulong addr in addresses)
+            {
+                retList.Add(new SymbolInfo
+                {
+                    Name = string.Empty,
+                    Address = addr,
+                    Size = 0,
+                    Flags = 0,
+                    Tag = 0
+                });
+            }
+
+            bool callback(IntPtr symInfo, uint symbolSize, IntPtr userContext)
+            {
+                if (symInfo != IntPtr.Zero)
+                {
+                    SYMBOL_INFO _symInfo = Marshal.PtrToStructure<SYMBOL_INFO>(symInfo);
+                    //Log("[Debug] Checking symbol: " + _symInfo.Name + $" at address 0x{_symInfo.Address:X}");
+                    foreach (SymbolInfo retSym in retList)
+                    {
+                        if (_symInfo.Name != null && _symInfo.Address == retSym.Address)
+                        {
+                            retSym.Name = _symInfo.Name;
+                            retSym.Address = _symInfo.Address;
+                            retSym.Size = _symInfo.Size;
+                            retSym.Flags = (uint)_symInfo.Flags;
+                            retSym.Tag = (uint)_symInfo.Tag;
+                            foundSymbols++;
+                            if (foundSymbols >= symbolsToFind)
+                            {
+                                return false;
+                            }
+                        }
+
+                    }
+                }
+                return true;
+            }
+
+            if (!SymEnumSymbols(
+                _pHandle,
+                _moduleBase,
+                "*",
+                callback,
+                IntPtr.Zero))
+            {
+                int error = Marshal.GetLastWin32Error();
+                Log($"[Debug] SymEnumSymbols failed with error: {error}");
+            }
+
+            return retList;
+        }
         public List<SymbolInfo> EnumerateAllSymbols(string filter = "*")
         {
             if (!_symbolsLoaded)
@@ -440,6 +501,7 @@ namespace PdbEnum
                 return x86_SymEnumSymbols(pHandle, moduleBase, v, callback, zero);
             }
         }
+
 
     }
 }

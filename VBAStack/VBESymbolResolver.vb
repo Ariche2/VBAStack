@@ -19,8 +19,7 @@ Friend Class VBESymbolResolver
         "EbMode",
         "EbSetMode",
         "EbGetCallstackCount",
-        "ErrGetCallstackString",
-        "ExecGetExframeTOS"
+        "ErrGetCallstackString"
     }
 
 #Region "Win32 Imports"
@@ -189,6 +188,37 @@ Friend Class VBESymbolResolver
         VBAStackLogger.LogDebug($"[VBESymbolResolver] Resolved {symbolName} -> 0x{result.Symbol.Address:X}")
         Return symbolPtr
     End Function
+
+    ''' <summary>
+    ''' Gets the symbol name at a specific address in VBE7.DLL.
+    ''' </summary>
+    Public Shared Function GetSymbolAtAddressBatch(addresses As List(Of IntPtr)) As List(Of Tuple(Of IntPtr, String))
+        If Not Initialize() Then
+            Return Nothing
+        End If
+
+        ' Verify the address is within the VBE7 module
+        For Each address In addresses
+            If Not IsAddressInModule(address) Then
+                VBAStackLogger.LogDebug($"[VBESymbolResolver] Address 0x{address.ToInt64():X} is not in VBE7.DLL")
+                Return Nothing
+            End If
+        Next
+
+        Dim batchresult As BatchSymbolSearchResult = CallPdbEnumForAddressBatch(addresses)
+
+        Dim retList As New List(Of Tuple(Of IntPtr, String))
+        For Each result As SymbolSearchResult In batchresult.Symbols
+            If Not result.Success OrElse result.Symbol Is Nothing Then
+                VBAStackLogger.LogDebug($"[VBESymbolResolver] No symbol found at address 0x{result.Symbol.Address:X}")
+            Else
+                VBAStackLogger.LogDebug($"[VBESymbolResolver] Found symbol {result.Symbol.Name} at address 0x{result.Symbol.Address:X}")
+                retList.Add(New Tuple(Of IntPtr, String)(New IntPtr(CLng(result.Symbol.Address)), result.Symbol.Name))
+            End If
+        Next
+
+        Return retList
+    End Function
 #End Region
 
 #Region "PdbEnum Communication"
@@ -208,7 +238,7 @@ Friend Class VBESymbolResolver
             VBAStackLogger.LogDebug($"[VBESymbolResolver] Calling PdbEnum with args: {arguments}")
             Dim psi As New ProcessStartInfo With {
                 .FileName = pdbEnumPath,
-                .Arguments = arguments,
+                .arguments = arguments,
                 .UseShellExecute = False,
                 .RedirectStandardOutput = True,
                 .RedirectStandardError = True,
@@ -259,7 +289,7 @@ Friend Class VBESymbolResolver
             VBAStackLogger.LogDebug($"[VBESymbolResolver] Calling PdbEnum with args: {arguments}")
             Dim psi As New ProcessStartInfo With {
                 .FileName = pdbEnumPath,
-                .Arguments = arguments,
+                .arguments = arguments,
                 .UseShellExecute = False,
                 .RedirectStandardOutput = True,
                 .RedirectStandardError = True,
@@ -290,6 +320,66 @@ Friend Class VBESymbolResolver
                     .Success = False,
                     .ErrorMessage = ex.Message
                 }
+        End Try
+    End Function
+
+    Private Shared Function CallPdbEnumForAddressBatch(addresses As List(Of IntPtr)) As BatchSymbolSearchResult
+        Dim pdbEnumPath As String = GetPdbEnumPath()
+        If String.IsNullOrEmpty(pdbEnumPath) Then
+            Return New BatchSymbolSearchResult With {
+                .Success = False,
+                .ErrorMessage = "PdbEnum.exe not found"
+            }
+        End If
+
+        Dim currentProcess As Integer = Process.GetCurrentProcess().Id
+        Dim addressHex As String = String.Join(" ", addresses.Select(Function(a) $"0x{a.ToInt64():X}"))
+        Dim arguments As String = $"-json -quiet -addr {currentProcess} VBE7.DLL {addressHex}"
+
+        Try
+            VBAStackLogger.LogDebug($"[VBESymbolResolver] Calling PdbEnum with args: {arguments}")
+            Dim psi As New ProcessStartInfo With {
+                .FileName = pdbEnumPath,
+                .arguments = arguments,
+                .UseShellExecute = False,
+                .RedirectStandardOutput = True,
+                .RedirectStandardError = True,
+                .CreateNoWindow = True
+            }
+
+            Using proc As Process = Process.Start(psi)
+                Dim output As String = proc.StandardOutput.ReadToEnd()
+                Dim errorOutput As String = proc.StandardError.ReadToEnd()
+                proc.WaitForExit()
+
+                If Not String.IsNullOrEmpty(errorOutput) Then
+                    VBAStackLogger.LogWarning($"[VBESymbolResolver stderr] {errorOutput}")
+                End If
+
+                If proc.ExitCode <> 0 Then
+                    Return New BatchSymbolSearchResult With {
+                        .Success = False,
+                        .ErrorMessage = $"PdbEnum exited with code {proc.ExitCode}"
+                    }
+                End If
+
+                ' Parse the batch result and extract the first symbol
+                Dim batchResult As BatchSymbolSearchResult = ParseBatchJsonResult(output)
+                If batchResult.Success AndAlso batchResult.Symbols IsNot Nothing AndAlso batchResult.Symbols.Count > 0 Then
+                    Return batchResult
+                Else
+                    Return New BatchSymbolSearchResult With {
+                        .Success = False,
+                        .ErrorMessage = "No symbol found at address"
+                    }
+                End If
+            End Using
+        Catch ex As Exception
+            VBAStackLogger.LogError($"[VBESymbolResolver] Error calling PdbEnum: {ex.Message}")
+            Return New BatchSymbolSearchResult With {
+                .Success = False,
+                .ErrorMessage = ex.Message
+            }
         End Try
     End Function
 
@@ -413,7 +503,7 @@ Friend Class VBESymbolResolver
     End Function
 
     Friend Shared Function IsAddressInModule(potentialAddress As IntPtr) As Boolean
-        Return potentialAddress.ToInt64() >= s_VBE7ModuleBase.ToInt64() AndAlso potentialAddress.ToInt64() < s_VBE7ModuleEnd.ToInt64()
+        Return potentialAddress.ToInt64() >= GetVBE7ModuleBase.ToInt64() AndAlso potentialAddress.ToInt64() < s_VBE7ModuleEnd.ToInt64()
     End Function
 #End Region
 End Class

@@ -1,6 +1,7 @@
 ''' <summary>
 ''' High-level API for retrieving VBA callstack information.
 ''' </summary>
+<Obsolete("Use VBEDirectCallstackReader instead.", False)>
 Public Class VBECallstackProvider
     Private Shared s_IsVerified As Boolean
 
@@ -32,7 +33,7 @@ Public Class VBECallstackProvider
 
         'Try the direct method first since it's quicker
         Try
-            Return GetCallstackDirect(vbe, ExcludeNonBasicCodeFrames)
+            Return GetCallstackDirect(vbe)
         Catch
         End Try
 
@@ -138,9 +139,8 @@ Public Class VBECallstackProvider
     ''' This method walks VBE internal structures directly without calling ErrGetCallstackString.
     ''' </summary>
     ''' <param name="vbe">A VBE object from an Office application.</param>
-    ''' <param name="ExcludeNonBasicCodeFrames">Whether to exclude non-basic code frames.</param>
     ''' <returns>A formatted string containing the callstack, or an error message.</returns>
-    Public Shared Function GetCallstackDirect(vbe As Object, Optional ExcludeNonBasicCodeFrames As Boolean = False) As String
+    Public Shared Function GetCallstackDirect(vbe As Object) As String
         ' Validate VBE version and check if it's currently visible
         Try
             If CStr(vbe.Version).FirstOrDefault() <> "7"c Then
@@ -150,11 +150,7 @@ Public Class VBECallstackProvider
             Throw New Exception("Could not access VBE object. See inner exception.", ex)
         End Try
 
-        If Not VerifyPointers() Then
-            Throw New Exception("Could not get pointers to necessary VBE7 functions")
-        End If
-
-        Dim result As String = VBEDirectCallstackReader.GetFormattedCallstack(ExcludeNonBasicCodeFrames)
+        Dim result As String = VBEDirectCallstackReader.GetCallstackString()
 
         Return result
     End Function
@@ -174,10 +170,6 @@ Public Class VBECallstackProvider
             Throw New Exception("Could not access VBE object. See inner exception.", ex)
         End Try
 
-        If Not VerifyPointers() Then
-            Throw New Exception("Could not get pointers to necessary VBE7 functions")
-        End If
-
         Try
             Dim result As String = VBEDirectCallstackReader.GetCurrentFunction.ToString(IncludeProjectName)
             Return result
@@ -185,6 +177,14 @@ Public Class VBECallstackProvider
             Throw New Exception("Could not get current function. See inner exception.", ex)
         End Try
     End Function
-
-
 End Class
+
+''' <summary>
+''' Internal VBE execution modes used by VBE7.dll.
+''' This is not the same as the VBProject.Mode enum.
+''' </summary>
+Friend Enum EbMode
+    Design = 0
+    Run = 1
+    Break = 2
+End Enum

@@ -2,61 +2,36 @@ Imports System.Runtime.InteropServices
 Imports System.Text
 
 ''' <summary>
-''' Direct callstack reader that walks VBE internal structures without using ErrGetCallstackString.
-''' Uses ExecGetExframeTOS to get the top of the EXFRAME linked list, then walks ObjectInfo/ObjectTable
+''' Direct callstack reader that walks VBE internal structures.
+''' Uses rtcErrObj to get the top of the EXFRAME linked list, then walks ObjectInfo/ObjectTable
 ''' structures to extract project, module, and function names. Works in both compiled (MDE) and uncompiled (MDB) VBA projects.
 ''' </summary>
-Friend Class VBEDirectCallstackReader
-    Private Shared s_ExecGetExframeTOSPtr As IntPtr
-
-    ''' <summary>
-    ''' Represents a single frame in the callstack with parsed information
-    ''' </summary>
-    Public Class CallstackFrameInfo
-        Public Property FrameType As CallstackFrameType
-        Public Property ProjectName As String
-        Public Property ModuleName As String
-        Public Property FunctionName As String
-        Public Property IsValid As Boolean
-
-        Public Overrides Function ToString() As String
-            If Not IsValid Then
-                Return $"[Invalid Frame - Type {FrameType}]"
-            End If
-
-            If FrameType = CallstackFrameType.RegularFunction Then
-                Return $"{ProjectName}.{ModuleName}.{FunctionName}"
-            Else
-                Return $"[Non-Basic Code - Type {FrameType}]"
-            End If
-        End Function
-
-        Public Overloads Function ToString(IncludeProject As Boolean) As String
-            Dim str As String = ""
-            If IncludeProject Then
-                str &= ProjectName & "."
-            End If
-            str &= ModuleName & "::" & FunctionName
-            Return str
-        End Function
-    End Class
+Public Class VBEDirectCallstackReader
+    Private Shared ExFrameTOS_GlobalVar As IntPtr
+    Private Declare Function rtcErrObj Lib "VBE7" () As IntPtr
 
 #Region "Initialization"
     ''' <summary>
-    ''' Initializes function pointers needed for direct stack walking
+    ''' Gets the pointer to the global g_ExFrameTOS variable by navigating from rtcErrObj.
     ''' </summary>
     Public Shared Function Initialize() As Boolean
         Try
-            ' Get ExecGetExframeTOS function pointer
-            If s_ExecGetExframeTOSPtr = IntPtr.Zero Then
-                s_ExecGetExframeTOSPtr = VBESymbolResolver.GetSymbolPointer("ExecGetExframeTOS")
-                If s_ExecGetExframeTOSPtr = IntPtr.Zero Then
-                    VBAStackLogger.LogError("[VBEDirectCallstackReader] Failed to get ExecGetExframeTOS pointer")
-                    Return False
-                End If
+
+
+
+            'Get memory location of top of the stack
+            Dim errObj As IntPtr = rtcErrObj()
+
+            'Offset 0x18 (x86) of VBAErr is a pointer to the global EbThread variable in VBE7
+            Dim g_ebThread As IntPtr = Marshal.ReadIntPtr(errObj, IntPtr.Size * 6)
+
+            'Offset 0x0C (x86) or 0x10 (x64) of EbThread is a pointer to the global ExFrameTOS variable in VBE7
+            If IntPtr.Size = 4 Then
+                ExFrameTOS_GlobalVar = g_ebThread + &HC
+            Else
+                ExFrameTOS_GlobalVar = g_ebThread + &H10
             End If
 
-            VBAStackLogger.LogDebug("[VBEDirectCallstackReader] Initialized successfully")
             Return True
         Catch ex As Exception
             VBAStackLogger.LogError($"[VBEDirectCallstackReader] Initialization failed: {ex.Message}")
@@ -67,30 +42,41 @@ Friend Class VBEDirectCallstackReader
 
 #Region "Stack Walking"
     ''' <summary>
+    ''' Gets the top-of-stack EXFRAME pointer
+    ''' </summary>
+    Public Shared Function GetExFrameTOS() As IntPtr
+        If Not Initialize() Then
+            Return IntPtr.Zero
+        End If
+        Try
+            'Get the top of stack (current EXFRAME)
+            Dim pExFrame As IntPtr = IntPtr.Zero
+            Try
+                pExFrame = Marshal.ReadIntPtr(ExFrameTOS_GlobalVar)
+            Catch
+            End Try
+            Return pExFrame
+        Catch ex As Exception
+            VBAStackLogger.LogError($"[VBEDirectCallstackReader] Error getting ExFrameTOS: {ex.Message}")
+            Return IntPtr.Zero
+        End Try
+    End Function
+
+    ''' <summary>
     ''' Walks the callstack and returns detailed information for each frame
     ''' </summary>
     Public Shared Function GetCallstackFrames() As List(Of CallstackFrameInfo)
         Dim frames As New List(Of CallstackFrameInfo)
 
-        If Not Initialize() Then
-            Return frames
-        End If
-
         Try
-            ' Use ExecGetExframeTOS to get the top of stack (works in both MDB and MDE)
-            If s_ExecGetExframeTOSPtr = IntPtr.Zero Then
-                VBAStackLogger.LogError("[VBEDirectCallstackReader] ExecGetExframeTOS pointer not initialized")
-                Return frames
-            End If
+            'Get the top of stack
+            Dim pExFrame As IntPtr = GetExFrameTOS()
 
-            ' Call ExecGetExframeTOS() to get current EXFRAME
-            Dim pExFrame As IntPtr = NativePtrCaller.NativePtrCaller.ExecGetExframeTOS(s_ExecGetExframeTOSPtr)
             If pExFrame = IntPtr.Zero Then
-                VBAStackLogger.LogDebug("[VBEDirectCallstackReader] ExecGetExframeTOS returned null")
+                VBAStackLogger.LogDebug("[VBEDirectCallstackReader] Could not get top-of-stack ExFrame")
                 Return frames
             End If
-
-            VBAStackLogger.LogDebug($"[VBEDirectCallstackReader] ExecGetExframeTOS returned 0x{pExFrame.ToInt64():X}")
+            VBAStackLogger.LogDebug($"[VBEDirectCallstackReader] Top-of-stack ExFrame is 0x{pExFrame.ToInt64():X}")
 
             ' Walk the EXFRAME linked list
             Dim index As Integer = 0
@@ -98,9 +84,7 @@ Friend Class VBEDirectCallstackReader
             Do
                 Try
                     ' All EXFRAMEs represent regular function calls
-                    Dim frameInfo As New CallstackFrameInfo With {
-                        .FrameType = CallstackFrameType.RegularFunction
-                    }
+                    Dim frameInfo As New CallstackFrameInfo
 
                     VBAStackLogger.LogDebug($"[VBEDirectCallstackReader] Frame {index}: pExFrame=0x{pExFrame.ToInt64():X}")
 
@@ -130,10 +114,10 @@ Friend Class VBEDirectCallstackReader
 
 #Region "Frame Name Extraction"
     ''' <summary>
-    ''' Attempts to extract names by walking ObjectInfo/ObjectTable structures (should work in MDEs / compiled code).
+    ''' Extracts project/module/function names from an ExFrame by reading various internal VBE structures.
     ''' Flow: EXFRAME -> RTMI -> ObjectInfo -> ObjectTable -> Public Object Descriptor -> Method Names
     ''' </summary>
-    Private Shared Function ExtractFrameNamesCompiled(pExFrame As IntPtr, frameInfo As CallstackFrameInfo) As Boolean
+    Private Shared Function ExtractFrameNames(pExFrame As IntPtr, frameInfo As CallstackFrameInfo) As Boolean
         Try
             Dim ExFrame As New ExFrame_AnyCPU(pExFrame)
 
@@ -169,7 +153,6 @@ Friend Class VBEDirectCallstackReader
             VBAStackLogger.LogDebug($"[VBEDirectCallstackReader] ObjectTable at 0x{pObjectTable.ToInt64():X}")
 
             Dim ObjectTable As New ObjectTable_AnyCPU(pObjectTable)
-            DumpMemory(pObjectTable, 256)
 
             ' Step 4: Read project name from ObjectTable (offset 0x40)
             'Dim pszProjectName As IntPtr = Marshal.ReadIntPtr(pObjectTable, &H40)
@@ -228,7 +211,6 @@ Friend Class VBEDirectCallstackReader
                 End If
             Next
 
-
             If methodIndex = -1 Then
                 VBAStackLogger.LogDebug("[VBEDirectCallstackReader] RTMI not found in methods array")
                 frameInfo.FunctionName = "[Unknown]"
@@ -260,32 +242,23 @@ Friend Class VBEDirectCallstackReader
             Return False
         End Try
     End Function
-
-    ''' <summary>
-    ''' Extracts project, module, and function names from an EXFRAME
-    ''' </summary>
-    Private Shared Function ExtractFrameNames(pExFrame As IntPtr, frameInfo As CallstackFrameInfo) As Boolean
-        Return ExtractFrameNamesCompiled(pExFrame, frameInfo)
-    End Function
 #End Region
 
 #Region "Public API"
     ''' <summary>
     ''' Gets a formatted callstack string by walking the internal structures directly
     ''' </summary>
-    Public Shared Function GetFormattedCallstack(Optional ExcludeNonBasicCodeFrames As Boolean = False) As String
+    Public Shared Function GetCallstackString(Optional IncludeProject As Boolean = False) As String
         Dim frames As List(Of CallstackFrameInfo) = GetCallstackFrames()
         Dim result As New Text.StringBuilder()
 
-        ' Reverse the list to show most recent call first (like VBECallstackProvider does)
+        ' Reverse the list to show most recent call first
         frames.Reverse()
 
         For Each frame In frames
-            If Not frame.IsValid OrElse (ExcludeNonBasicCodeFrames AndAlso frame.FrameType <> CallstackFrameType.RegularFunction) Then
-                Continue For
+            If frame.IsValid Then
+                result.AppendLine(frame.ToString(IncludeProject))
             End If
-
-            result.AppendLine(frame.ToString(False))
         Next
 
         Return result.ToString()
@@ -296,32 +269,20 @@ Friend Class VBEDirectCallstackReader
     ''' Returns the most recent frame from the callstack.
     ''' </summary>
     Public Shared Function GetCurrentFunction() As CallstackFrameInfo
-        If Not Initialize() Then
-            Throw New Exception("Initialization failed")
-        End If
 
         Try
-            Dim frameInfo As New CallstackFrameInfo With {
-                .FrameType = CallstackFrameType.RegularFunction
-            }
+            Dim frameInfo As New CallstackFrameInfo
 
-            ' Get the top of stack (current EXFRAME)
-            If s_ExecGetExframeTOSPtr = IntPtr.Zero Then
-                VBAStackLogger.LogError("[VBEDirectCallstackReader] ExecGetExframeTOS pointer not initialized")
-                Throw New Exception("ExecGetExframeTOS pointer not initialized")
-            End If
+            'Get the top of stack
+            Dim pExFrame As IntPtr = GetExFrameTOS()
 
-            ' Call ExecGetExframeTOS() to get current EXFRAME
-            Dim pExFrame As IntPtr = NativePtrCaller.NativePtrCaller.ExecGetExframeTOS(s_ExecGetExframeTOSPtr)
             If pExFrame = IntPtr.Zero Then
-                VBAStackLogger.LogDebug("[VBEDirectCallstackReader] ExecGetExframeTOS returned null")
+                VBAStackLogger.LogDebug("[VBEDirectCallstackReader] Could not get top-of-stack ExFrame")
                 Return frameInfo
             End If
-
-            VBAStackLogger.LogDebug($"[VBEDirectCallstackReader] ExecGetExframeTOS returned 0x{pExFrame.ToInt64():X}")
+            VBAStackLogger.LogDebug($"[VBEDirectCallstackReader] Top-of-stack ExFrame is 0x{pExFrame.ToInt64():X}")
 
             ' Extract names for the current frame
-
 
             ExtractFrameNames(pExFrame, frameInfo)
             Return frameInfo
@@ -340,9 +301,9 @@ Friend Class VBEDirectCallstackReader
     ''' </summary>
     ''' <param name="address">Starting address to dump</param>
     ''' <param name="length">Number of bytes to dump</param>
-    ''' <param name="bytesPerLine">Number of bytes to display per line (default 16)</param>
     ''' <returns>Formatted hex dump string</returns>
-    Public Shared Function DumpMemory(address As IntPtr, length As Integer, Optional bytesPerLine As Integer = 16) As String
+    Public Shared Function DumpMemory(address As IntPtr, length As Integer) As String
+        Dim bytesPerLine As Integer = 16
         If address = IntPtr.Zero Then
             Return "[Null pointer]"
         End If
@@ -358,6 +319,8 @@ Friend Class VBEDirectCallstackReader
         result.AppendLine()
 
         Try
+            Dim allBytes(length - 1) As Byte
+            Dim totalCounter As Integer = 0
             For offset As Integer = 0 To length - 1 Step bytesPerLine
                 ' Address column
                 result.Append($"0x{currentAddr + offset:X8}  ")
@@ -374,18 +337,38 @@ Friend Class VBEDirectCallstackReader
                         result.Append("?? ")
                         lineBytes(i) = 0
                     End Try
+                    allBytes(totalCounter) = lineBytes(i)
+                    totalCounter += 1
 
-                    ' Add extra space after 8 bytes for readability
-                    If i = 7 AndAlso bytesPerLine = 16 Then
-                        result.Append(" ")
+                    ' Add extra space based on pointer size for readability
+                    If bytesPerLine = 16 Then
+                        If IntPtr.Size = 4 Then
+                            ' 32-bit: 4 sections of 4 bytes (space after indices 3, 7, 11)
+                            If (i + 1) Mod 4 = 0 AndAlso i < 15 Then
+                                result.Append(" ")
+                            End If
+                        Else
+                            ' 64-bit: 2 sections of 8 bytes (space after index 7)
+                            If i = 7 Then
+                                result.Append(" ")
+                            End If
+                        End If
                     End If
                 Next
 
                 ' Pad if incomplete line
                 If bytesInLine < bytesPerLine Then
                     Dim padding As Integer = (bytesPerLine - bytesInLine) * 3
-                    If bytesInLine <= 8 AndAlso bytesPerLine = 16 Then
-                        padding += 1 ' Account for extra space after 8th byte
+                    If bytesPerLine = 16 Then
+                        If IntPtr.Size = 4 Then
+                            ' 32-bit: Account for remaining section separators (3 total separators at positions 4, 8, 12)
+                            padding += 3 - (bytesInLine \ 4)
+                        Else
+                            ' 64-bit: Account for separator after 8th byte if not yet printed
+                            If bytesInLine < 8 Then
+                                padding += 1
+                            End If
+                        End If
                     End If
                     result.Append(New String(" "c, padding))
                 End If
@@ -402,6 +385,46 @@ Friend Class VBEDirectCallstackReader
                 Next
                 result.AppendLine("|")
             Next
+
+            Dim foundPointers As New List(Of Tuple(Of IntPtr, Integer))
+
+            For i As Integer = 0 To length - IntPtr.Size
+                Dim val As Long
+                If IntPtr.Size = 8 Then
+                    val = BitConverter.ToInt64(allBytes, i)
+                Else
+                    val = BitConverter.ToInt32(allBytes, i)
+                End If
+                Dim potentialPointer As New IntPtr(val)
+                If VBESymbolResolver.IsAddressInModule(potentialPointer) Then
+                    foundPointers.Add(New Tuple(Of IntPtr, Integer)(potentialPointer, i))
+                End If
+            Next
+
+            If foundPointers.Count > 0 Then
+                result.AppendLine()
+                result.AppendLine($"VBE7 module base: 0x{VBESymbolResolver.GetVBE7ModuleBase.ToInt64():X}")
+                result.AppendLine()
+                result.AppendLine("Potential pointers found in dump:")
+
+                Dim justPointers As New List(Of IntPtr)
+                For Each ptr_offset_pair As Tuple(Of IntPtr, Integer) In foundPointers
+                    justPointers.Add(ptr_offset_pair.Item1)
+                Next
+
+                Dim symbolInfoList As List(Of Tuple(Of IntPtr, String)) = VBESymbolResolver.GetSymbolAtAddressBatch(justPointers)
+
+                For Each ptr_offset_pair As Tuple(Of IntPtr, Integer) In foundPointers
+                    Dim symbolInfo = symbolInfoList.Find(Function(t) t.Item1 = ptr_offset_pair.Item1)
+                    If symbolInfo IsNot Nothing Then
+                        result.AppendLine($"Offset 0x{ptr_offset_pair.Item2:X}, 0x{ptr_offset_pair.Item1.ToInt64():X} -> {symbolInfo.Item2}")
+                    Else
+                        result.AppendLine($"Offset 0x{ptr_offset_pair.Item2:X}, 0x{ptr_offset_pair.Item1.ToInt64():X} -> [No symbol found]")
+                    End If
+                Next
+            End If
+
+
         Catch ex As Exception
             result.AppendLine()
             result.AppendLine($"[Error reading memory: {ex.Message}]")
@@ -410,4 +433,27 @@ Friend Class VBEDirectCallstackReader
         Return result.ToString()
     End Function
 #End Region
+End Class
+
+''' <summary>
+''' Represents a single frame in the callstack with parsed information
+''' </summary>
+Public Class CallstackFrameInfo
+    Public Property ProjectName As String
+    Public Property ModuleName As String
+    Public Property FunctionName As String
+    Public Property IsValid As Boolean
+
+    Public Overrides Function ToString() As String
+        Return $"{ProjectName}.{ModuleName}.{FunctionName}"
+    End Function
+
+    Public Overloads Function ToString(IncludeProject As Boolean) As String
+        Dim str As String = ""
+        If IncludeProject Then
+            str &= ProjectName & "."
+        End If
+        str &= ModuleName & "::" & FunctionName
+        Return str
+    End Function
 End Class

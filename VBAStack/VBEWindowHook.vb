@@ -11,11 +11,8 @@ Imports System.Runtime.InteropServices
 ''' which allows it to modify the show/hide flags before the window position changes are applied.
 ''' This provides more reliable control over the VBE window visibility than simply calling ShowWindow.
 ''' </remarks>
-Public Class VBEWindowHook
+Friend Class VBEWindowHook
     Inherits NativeWindow
-
-    'TODO: Potentially, could create a normal WinForms window and parent the VBE window to it, then hide that - when we're done, set the parent to 0?
-
     ''' <summary>
     ''' Win32 API function to show or hide a window.
     ''' </summary>

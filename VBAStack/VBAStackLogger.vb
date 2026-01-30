@@ -1,7 +1,7 @@
 ''' <summary>
 ''' Centralized logging module for VBAStack project.
 ''' </summary>
-Friend Module VBAStackLogger
+Public Module VBAStackLogger
 
     ''' <summary>
     ''' Log severity levels.
@@ -16,7 +16,7 @@ Friend Module VBAStackLogger
     ''' <summary>
     ''' When True, only Error level messages are logged. When False, all messages are logged.
     ''' </summary>
-    Public Property ErrorsOnly As Boolean = False
+    Public Property ErrorsOnly As Boolean = True
 
     ''' <summary>
     ''' Logs a debug message.
