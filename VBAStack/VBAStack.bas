@@ -1,5 +1,5 @@
 Attribute VB_Name = "VBAStack"
-Option Explicit On
+Option Explicit
 
 'Tested on x86 Access 2003, x86 Access 2013, x86 Access 365, x64 Access 2013, and x64 Access 365.
 
