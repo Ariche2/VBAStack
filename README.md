@@ -8,7 +8,7 @@ Credit to "The Trick" - without finding his [VbTrickTimer](https://github.com/th
 # NEW: VBAStack directly in VBA!
 Managed to get it working directly in VBA, no .NET or COM or anything. So far I've tested in x86 Access 2003, x86 Access 2013, x86 Access 365, x64 Access 2013, and x64 Access 365, and it works across the board.
 
-Just download the [VBAStack.bas](VBAStack.bas) file and import it into your VBA project - notes on usage are included in the file.
+Just download the [VBAStack.bas](VBAStack/VBAStack.bas) file and import it into your VBA project - notes on usage are included in the file.
 
 
 ## Note on AI use
