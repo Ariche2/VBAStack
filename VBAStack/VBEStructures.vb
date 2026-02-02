@@ -78,41 +78,39 @@ Friend Module VBEStructures
     ''' <summary>
     ''' RTMI (Runtime Member Info) structure - describes a VBA procedure at runtime.
     ''' Reverse engineered from VBE7.dll.
-    ''' Size: Variable (at least 0x18+ bytes, contains pointers to additional structures)
+    ''' Size: Variable (at least 0x18+ bytes on x86, larger on x64)
+    ''' Note: Do NOT use IntPtr in this structure - offsets differ between x86/x64 in a non-linear way
     ''' </summary>
     <StructLayout(LayoutKind.Sequential)>
     Friend Structure RTMI
         ''' <summary>Offset 0x00: Pointer to ObjectInfo structure (link back to parent object)</summary>
         Public lpObjectInfo As Integer
 
-        ''' <summary>Offset 0x02 (x86): Module index (ushort) - used to look up ExecMod via ExecProj::Pexecmod</summary>
-        Public moduleIndex As UShort
+        ''' <summary>Offset 0x04 (x86), 0x08 (x64): Stack cleanup size (ushort) - combined length of all arguments (argSz)</summary>
+        Public argSz As UShort
 
-        ''' <summary>Offset 0x04 (x86): Pointer to structure containing ExecProj at offset +0x04</summary>
-        Public lpExecProj As Integer
-
-        ''' <summary>Offset 0x06 (x86): Stack frame size (ushort) - cbStackFrame
+        ''' <summary>Offset 0x06 (x86), 0x0A (x64): Stack frame size (ushort) - cbStackFrame
         ''' Used by ExecFillNtexInfoFromExframe to calculate local variable addresses
         ''' Local vars start at: (EXFRAME_address - 0x28 - cbStackFrame) and go downward</summary>
         Public cbStackFrame As UShort
 
-        ''' <summary>Offset 0x08 (x86): Unknown field</summary>
-        Public field_0x8 As Integer
+        ''' <summary>Offset 0x08 (x86), 0x0C (x64): Procedure code size</summary>
+        Public ProcSize As UShort
 
-        ''' <summary>Offset 0x0C (x86): Unknown field</summary>
+        ''' <summary>Offset 0x0C (x86), 0x10 (x64): Unknown field</summary>
         Public field_0xC As Integer
 
-        ''' <summary>Offset 0x10 (x86): Unknown field</summary>
+        ''' <summary>Offset 0x10 (x86), 0x18 (x64): Unknown field</summary>
         Public field_0x10 As Integer
 
-        ''' <summary>Offset 0x14 (x86): Unknown field</summary>
+        ''' <summary>Offset 0x14 (x86), 0x20 (x64): Unknown field</summary>
         Public field_0x14 As Integer
 
-        ''' <summary>Offset 0x18 (x86): Pointer to RESDESCTBL structure (resource descriptor table)
+        ''' <summary>Offset 0x18 (x86), 0x28 (x64): Pointer to RESDESCTBL structure (resource descriptor table)
         ''' Used in SerReadRTMI for reading/writing serialized data</summary>
         Public lpResDescTbl As Integer
 
-        ' Note: Additional fields may exist beyond 0x18, but not yet mapped
+        ' Note: Additional fields may exist beyond 0x18/0x28, but not yet mapped
     End Structure
 
     ''' <summary>
@@ -172,6 +170,125 @@ Friend Module VBEStructures
 
         ''' <summary>Offset 0x34: Pointer to Constants Pool</summary>
         Public lpConstants As Integer
+    End Structure
+
+    ''' <summary>
+    ''' Function Prototype structure - describes a function's arguments and return type.
+    ''' Based on article from David Zimmer: https://www.gendigital.com/blog/insights/research/recovery-of-function-prototypes-in-visual-basic-6-executables
+    ''' Size: Variable (at least 0x20 bytes + dynamic array at end)
+    ''' </summary>
+    Friend Structure funcPrototype
+
+        ''' <summary>Offset 0x00: Size of arguments in bytes</summary>
+        Public argSize As Byte
+        ''' <summary>Offset 0x01: Flags. Set to 1 if function has a return value - if so, the last byte of the dynamic array at bottom of this struct defines the return type</summary>
+        Public bFlags As Byte
+        ''' <summary>Offset 0x02: VTable offset of this function</summary>
+        Public vtableOffset As UShort
+
+        Public alwaysFFFF As UShort
+        Public nul1 As UShort
+
+        ''' <summary>Offset 0x08: Will be set if the method has optional parameters which include default values - most likely pointer to an array of those values?</summary>
+        Public optionalVals As Integer
+
+        ''' <summary>Offset 0x0C: MemberID of this function on the object it comes from - always 0 if function is from a module</summary>
+        Public memberId As Integer
+
+        ''' <summary>Offset 0x10: Pointer to array of string pointers corresponding to names of each argument (ANSI string)</summary>
+        Public lpArgNamesArray As Integer
+
+        ''' <summary>Offset 0x14: Not sure on this one - unsure why Zimmer called it this?</summary>
+        Public lpFuncDesc As Integer
+
+        Public nul3 As Integer
+        Public helpId As Integer
+        Public END_unkn As Byte 'Seemed to be 1E with everything David Zimmer tested, but not for me! VB6 vs VBA maybe? Or cuz I'm testing with a module and not a class?
+
+        '<summary>Offset 0x21: Start of dynamic array of argument types (and return type if applicable)</summary>
+        'End of this structure is array of bytes defining argument types. Dynamic size.
+        'Either read until you get a null byte, or you hit the address of lpArgNamesArray.
+
+    End Structure
+
+
+    'Directly and shamelessly copied from David Zimmer, again.
+
+    'had to manually map these out watching variations
+    'internal to vb not variant types
+    Friend Enum eVBInternal_VarTypes
+        epvT_Boolean = 3
+        epvT_Byte = 5
+        epvT_Integer = 6
+        epvT_Long = 8
+        epvT_Single = &HA
+        epvT_Double = &HB
+        epvT_Date = &HC
+        epvT_Currency = &HD
+        epvT_Variant = &HF
+        epvT_String = &H10
+        epvT_Object = &H1B
+        epvT_HRESULT = &H1E
+
+        epvT_ComIface = &H1C  ' \
+        epvT_ComObj = &H1D    '  \__ these add 32bit pointer <--- oh god he means literally. so if we encounter one of these, the next 4 (or 8) bytes are a pointer to a structure with COM info. So this'll need a special case to skip those bytes when reading arg types. yay
+        epvT_Internal = &H13  '  /
+
+        epvT_LongLong = &H999 ' no idea where this one fits in yet, so just giving it a random value. need to test in 64bit to find the bastard
+    End Enum
+
+    ''' <summary>
+    ''' Private Object Descriptor - pointed by an array defined in the Object List Pointer in the Secondary Project Information.
+    ''' See Notes_on_VB_Structures.txt.
+    ''' Size: 0x40 bytes (64 bytes)
+    ''' Note: The whole structure can be deleted after compilation.
+    ''' </summary>
+    <StructLayout(LayoutKind.Sequential)>
+    Friend Structure PrivateObject
+        ''' <summary>Offset 0x00: Unused after compilation, always 0</summary>
+        Public nul0 As Integer
+
+        ''' <summary>Offset 0x04: Pointer to the Object Info for this Object</summary>
+        Public lpObjectInfo As Integer
+
+        ''' <summary>Offset 0x08: Always set to -1 after compiling</summary>
+        Public constNeg1 As Integer
+
+        ''' <summary>Offset 0x0C: Not valid after compilation (array of 3 integers)</summary>
+        Public nul1 As Integer
+
+        ''' <summary>Offset 0x10: Not valid after compilation (array of 3 integers)</summary>
+        Public nul2 As Integer
+
+        ''' <summary>Offset 0x14: Not valid after compilation (array of 3 integers)</summary>
+        Public nul3 As Integer
+
+        ''' <summary>Offset 0x18: Points to array of function prototype info</summary>
+        Public lpFuncTypInfo As Integer
+
+        ''' <summary>Offset 0x1C: Not valid after compilation</summary>
+        Public nul4 As Integer
+
+        ''' <summary>Offset 0x20: Points to array of public vars</summary>
+        Public lpPublicVars As Integer
+
+        ''' <summary>Offset 0x24: Points to array of event type info</summary>
+        Public lpEventsTypeInfo As Integer
+
+        ''' <summary>Offset 0x28: Not valid after compilation (array of 3 integers)</summary>
+        Public lpNull As Integer
+
+        Public nul5 As Integer
+
+        Public nul6 As Integer
+
+        Public nul7 As Integer
+
+        ''' <summary>Offset 0x38: Type of the Object described</summary>
+        Public dwObjectType As Integer
+
+        ''' <summary>Offset 0x3C: Template Version of Structure</summary>
+        Public dwIdentifier As Integer
     End Structure
 
     ''' <summary>

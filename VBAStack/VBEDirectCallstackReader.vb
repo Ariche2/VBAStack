@@ -234,6 +234,22 @@ Public Class VBEDirectCallstackReader
                 frameInfo.FunctionName = "[Unknown]"
             End If
 
+
+            ' Extra Step: Read function prototype from PrivateObject (offset 0x18 on x86, unknown on x64)
+            Dim lpPrivateObject As IntPtr = ObjectInfo.lpPrivateObject
+            If lpPrivateObject = IntPtr.Zero Then
+                Return True
+            End If
+            'Only need one thing from PrivateObject so cba to setup a proper AnyCPU struct
+            Dim pFuncProto As IntPtr = Marshal.ReadIntPtr(Marshal.ReadIntPtr(lpPrivateObject + IIf(IntPtr.Size = 4, &H18, &H999), methodIndex * IntPtr.Size)) 'TODO - need to find x64 offset - for now random value
+            Dim FuncProto As New funcPrototype_AnyCPU(pFuncProto)
+            VBAStackLogger.LogDebug($"[VBEDirectCallstackReader] Function Prototype at 0x{pFuncProto.ToInt64():X}, Param Count: {FuncProto.Params.Count}")
+
+            ' Step 12: Extract parameters from the stack frame
+            'TODO - get param sizes from FuncProto and properly parse param values
+            'ExtractFrameParameters(pExFrame, frameInfo)
+
+
             Return True
 
         Catch ex As Exception
@@ -242,13 +258,185 @@ Public Class VBEDirectCallstackReader
             Return False
         End Try
     End Function
+
+    ''' <summary>
+    ''' Extracts parameter values from the stack frame of an ExFrame
+    ''' NOTE: This is EXPERIMENTAL and currently disabled due to accuracy issues.
+    ''' The problem: argSz is stack cleanup size (bytes), not parameter count.
+    ''' We need parameter metadata (count, types, ByVal/ByRef) to properly parse parameters.
+    ''' This metadata exists in TYPE_DATA/EXTBL structures but requires deeper reverse engineering.
+    ''' </summary>
+    Private Shared Sub ExtractFrameParameters(pExFrame As IntPtr, frameInfo As CallstackFrameInfo)
+        ' TODO: Implement proper parameter extraction by:
+        ' 1. Finding parameter metadata in RTMI or related structures
+        ' 2. Reading parameter count, types, and ByVal/ByRef flags
+        ' 3. Parsing stack frame based on actual parameter layout
+        ' For now, disable to avoid incorrect results
+        Return
+
+        Try
+            Dim ExFrame As New ExFrame_AnyCPU(pExFrame)
+            Dim pRtmi As IntPtr = ExFrame.lpRTMI
+            If pRtmi = IntPtr.Zero Then
+                Return
+            End If
+
+            Dim RTMI As New RTMI_AnyCPU(pRtmi)
+            Dim argSz As UShort = RTMI.argSz
+            Dim cbStackFrame As UShort = RTMI.cbStackFrame
+            Dim cLocalVars As Integer = ExFrame.cLocalVars
+
+            ' VBA VARIANTs are 16 bytes each
+            Const VARIANT_SIZE As Integer = 16
+
+            ' PROBLEM: This calculation is incorrect!
+            ' argSz is stack cleanup size (total bytes), not parameter count
+            ' Parameters can be different sizes depending on type and ByVal/ByRef
+            Dim paramCount As Integer = 0
+            If argSz > 0 Then
+                ' This assumes all params are pointers, which is WRONG
+                paramCount = argSz \ IntPtr.Size
+            End If
+
+            If paramCount = 0 Then
+                Return
+            End If
+
+            VBAStackLogger.LogDebug($"[VBEDirectCallstackReader] EXPERIMENTAL: Extracting {paramCount} parameters (argSz={argSz}, cbStackFrame={cbStackFrame}, cLocalVars={cLocalVars})")
+
+            ' Calculate the base address for local variables
+            ' Local vars start at: (EXFRAME_address - 0x28 - cbStackFrame)
+            Dim localVarBase As IntPtr = ExFrame.Address - &H28 - cbStackFrame
+
+            ' Parameters are stored ABOVE the local variables in the stack frame
+            ' They start after the local variables section
+            Dim paramBase As IntPtr = localVarBase + (cLocalVars * VARIANT_SIZE)
+
+            ' Read each parameter
+            For i As Integer = 0 To paramCount - 1
+                Try
+                    ' Each parameter is a pointer to a VARIANT
+                    Dim pVariant As IntPtr = Marshal.ReadIntPtr(paramBase + (i * IntPtr.Size))
+
+                    If pVariant <> IntPtr.Zero Then
+                        ' Read the VARIANT structure (first 16 bytes) safely
+                        Dim variantData(VARIANT_SIZE - 1) As Byte
+
+                        ' Use Marshal.Copy with error handling - it can throw AccessViolationException
+                        ' if memory is invalid or protected
+                        Try
+                            Marshal.Copy(pVariant, variantData, 0, VARIANT_SIZE)
+                        Catch ex As AccessViolationException
+                            VBAStackLogger.LogError($"[VBEDirectCallstackReader] Cannot access memory for parameter {i} at 0x{pVariant.ToInt64():X}")
+                            Continue For
+                        End Try
+
+                        ' First 2 bytes are the variant type (VT_*)
+                        Dim vt As UShort = BitConverter.ToUInt16(variantData, 0)
+
+                        ' Create parameter info
+                        Dim param As New ParameterInfo With {
+                            .Index = i,
+                            .Address = pVariant,
+                            .VariantType = vt,
+                            .RawData = variantData
+                        }
+
+                        ' Try to extract the value based on variant type
+                        param.Value = InterpretVariant(variantData, vt)
+
+                        frameInfo.Parameters.Add(param)
+                        VBAStackLogger.LogDebug($"[VBEDirectCallstackReader] Param {i}: VT={vt}, Value={param.Value}")
+                    End If
+                Catch ex As Exception
+                    VBAStackLogger.LogError($"[VBEDirectCallstackReader] Error reading parameter {i}: {ex.Message}")
+                End Try
+            Next
+
+        Catch ex As Exception
+            VBAStackLogger.LogError($"[VBEDirectCallstackReader] Error extracting parameters: {ex.Message}")
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' Interprets a VARIANT structure and returns a string representation of its value
+    ''' </summary>
+    Private Shared Function InterpretVariant(variantData() As Byte, vt As UShort) As String
+        Try
+            ' VARIANT layout: [0-1]=VT, [2-7]=reserved, [8-15]=data
+            Select Case vt
+                Case 0 ' VT_EMPTY
+                    Return "<Empty>"
+                Case 1 ' VT_NULL
+                    Return "<Null>"
+                Case 2 ' VT_I2 (short)
+                    Return BitConverter.ToInt16(variantData, 8).ToString()
+                Case 3 ' VT_I4 (long/int)
+                    Return BitConverter.ToInt32(variantData, 8).ToString()
+                Case 4 ' VT_R4 (float)
+                    Return BitConverter.ToSingle(variantData, 8).ToString()
+                Case 5 ' VT_R8 (double)
+                    Return BitConverter.ToDouble(variantData, 8).ToString()
+                Case 6 ' VT_CY (currency)
+                    Dim cy As Long = BitConverter.ToInt64(variantData, 8)
+                    Return (cy / 10000.0).ToString("C")
+                Case 7 ' VT_DATE
+                    Dim dateVal As Double = BitConverter.ToDouble(variantData, 8)
+                    Return $"<Date: {dateVal}>"
+                Case 8 ' VT_BSTR (string)
+                    Dim pBstr As IntPtr = New IntPtr(BitConverter.ToInt32(variantData, 8))
+                    If pBstr <> IntPtr.Zero Then
+                        Try
+                            Return $"""{Marshal.PtrToStringBSTR(pBstr)}"""
+                        Catch
+                            Return $"<BSTR at 0x{pBstr.ToInt64():X}>"
+                        End Try
+                    End If
+                    Return "<Empty BSTR>"
+                Case 9 ' VT_DISPATCH
+                    Dim pDisp As IntPtr = New IntPtr(BitConverter.ToInt32(variantData, 8))
+                    Return $"<IDispatch at 0x{pDisp.ToInt64():X}>"
+                Case 10 ' VT_ERROR
+                    Return $"<Error: 0x{BitConverter.ToInt32(variantData, 8):X}>"
+                Case 11 ' VT_BOOL
+                    Dim boolVal As Short = BitConverter.ToInt16(variantData, 8)
+                    Return If(boolVal <> 0, "True", "False")
+                Case 12 ' VT_VARIANT (should not occur at this level)
+                    Return "<Variant>"
+                Case 13 ' VT_UNKNOWN
+                    Dim pUnk As IntPtr = New IntPtr(BitConverter.ToInt32(variantData, 8))
+                    Return $"<IUnknown at 0x{pUnk.ToInt64():X}>"
+                Case 16 ' VT_I1 (signed char)
+                    Return CType(variantData(8), SByte).ToString()
+                Case 17 ' VT_UI1 (byte)
+                    Return variantData(8).ToString()
+                Case 18 ' VT_UI2 (unsigned short)
+                    Return BitConverter.ToUInt16(variantData, 8).ToString()
+                Case 19 ' VT_UI4 (unsigned int)
+                    Return BitConverter.ToUInt32(variantData, 8).ToString()
+                Case 20 ' VT_I8 (long long)
+                    Return BitConverter.ToInt64(variantData, 8).ToString()
+                Case 21 ' VT_UI8 (unsigned long long)
+                    Return BitConverter.ToUInt64(variantData, 8).ToString()
+                Case &H2000 To &HFFFF ' VT_ARRAY flag
+                    Return $"<Array: VT={vt:X}>"
+                Case &H4000 To &HFFFF ' VT_BYREF flag
+                    Dim pRef As IntPtr = New IntPtr(BitConverter.ToInt32(variantData, 8))
+                    Return $"<ByRef VT={vt And &HFFF:X} at 0x{pRef.ToInt64():X}>"
+                Case Else
+                    Return $"<VT={vt} (0x{BitConverter.ToInt64(variantData, 8):X})>"
+            End Select
+        Catch ex As Exception
+            Return $"<Error interpreting: {ex.Message}>"
+        End Try
+    End Function
 #End Region
 
 #Region "Public API"
     ''' <summary>
     ''' Gets a formatted callstack string by walking the internal structures directly
     ''' </summary>
-    Public Shared Function GetCallstackString(Optional IncludeProject As Boolean = False) As String
+    Public Shared Function GetCallstackString(Optional IncludeProject As Boolean = False, Optional includeParameters As Boolean = False) As String
         Dim frames As List(Of CallstackFrameInfo) = GetCallstackFrames()
         Dim result As New Text.StringBuilder()
 
@@ -257,7 +445,11 @@ Public Class VBEDirectCallstackReader
 
         For Each frame In frames
             If frame.IsValid Then
-                result.AppendLine(frame.ToString(IncludeProject))
+                If includeParameters AndAlso frame.Parameters.Count > 0 Then
+                    result.AppendLine(frame.ToStringWithParameters())
+                Else
+                    result.AppendLine(frame.ToString(IncludeProject))
+                End If
             End If
         Next
 
@@ -291,6 +483,48 @@ Public Class VBEDirectCallstackReader
             VBAStackLogger.LogError($"[VBEDirectCallstackReader] Error getting current function: {ex.Message}")
             Throw
         End Try
+    End Function
+
+    ''' <summary>
+    ''' Gets a detailed string representation of parameters for all frames in the callstack
+    ''' </summary>
+    Public Shared Function GetParametersDebugString() As String
+        Dim result As New StringBuilder()
+        
+        Try
+            Dim frames As List(Of CallstackFrameInfo) = GetCallstackFrames()
+            
+            If frames.Count = 0 Then
+                Return "[No callstack frames found]"
+            End If
+
+            result.AppendLine($"VBA Callstack with Parameters ({frames.Count} frames):")
+            result.AppendLine()
+
+            For i As Integer = 0 To frames.Count - 1
+                Dim frame As CallstackFrameInfo = frames(i)
+                If frame.IsValid Then
+                    result.AppendLine($"Frame {i}: {frame.ToString(True)}")
+                    
+                    If frame.Parameters.Count > 0 Then
+                        For Each param In frame.Parameters
+                            result.AppendLine($"    [{param.Index}] {param.Value} (VT={param.VariantType}, Addr=0x{param.Address.ToInt64():X})")
+                        Next
+                    Else
+                        result.AppendLine("    (No parameters)")
+                    End If
+                    result.AppendLine()
+                Else
+                    result.AppendLine($"Frame {i}: [Invalid Frame]")
+                    result.AppendLine()
+                End If
+            Next
+
+        Catch ex As Exception
+            result.AppendLine($"[Error: {ex.Message}]")
+        End Try
+
+        Return result.ToString()
     End Function
 #End Region
 
@@ -443,6 +677,7 @@ Public Class CallstackFrameInfo
     Public Property ModuleName As String
     Public Property FunctionName As String
     Public Property IsValid As Boolean
+    Public Property Parameters As New List(Of ParameterInfo)
 
     Public Overrides Function ToString() As String
         Return $"{ProjectName}.{ModuleName}.{FunctionName}"
@@ -455,5 +690,28 @@ Public Class CallstackFrameInfo
         End If
         str &= ModuleName & "::" & FunctionName
         Return str
+    End Function
+
+    Public Function ToStringWithParameters() As String
+        If Parameters.Count = 0 Then
+            Return ToString()
+        End If
+        Dim paramStr As String = String.Join(", ", Parameters.Select(Function(p) p.Value))
+        Return $"{ToString()}({paramStr})"
+    End Function
+End Class
+
+''' <summary>
+''' Represents a parameter extracted from a stack frame
+''' </summary>
+Public Class ParameterInfo
+    Public Property Index As Integer
+    Public Property Address As IntPtr
+    Public Property VariantType As UShort
+    Public Property RawData As Byte()
+    Public Property Value As String
+
+    Public Overrides Function ToString() As String
+        Return $"[{Index}] {Value} (VT={VariantType})"
     End Function
 End Class
