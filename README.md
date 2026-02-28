@@ -11,12 +11,19 @@ Managed to get it working directly in VBA, no .NET or COM or anything. So far I'
 Just download the [VBAStack.bas](VBAStack/VBAStack.bas) file and import it into your VBA project - notes on usage are included in the file.
 
 
-## Note on AI use
+
+**Update as of 28/02/2026**
+
+I've now added the ability to get parameter types and values from stack frames - this is pretty well tested on x86, but less so on x64.
+
+
+
+# Note on AI use
 The vast majority of this code was written with my own two hands, but I will admit to prettifying things (mostly documentation, and the bones of this readme) with AI.
 
 I did discover that it is *absolutely terrible* at debugging stuff when it isn't well-covered ground, though.
 
-## Overview
+# Overview
 
 VBAStack allows you to programmatically retrieve the current VBA call stack from a running VBA application (Excel, Word, Access, etc.).
 
