@@ -459,50 +459,58 @@ Private Sub ReadParamValues(ByVal pExFrame As LongPtr, ByRef ArrayOfParams() As 
         pParamBase = ReadPtr(pExFrame - &H28) 'Magic number time!
     #End If
     Dim i As Integer
-    
+
+    If pParamBase = 0 Then
+        If Not CheckAddressSafe(pParamBase) Then
+            'Have only seen this with "special" frames, like the immediate window. Can't get param values for this, but can get the names and types, weirdly enough.
+            'Thanks to @tvanstiphout from access-programmers.co.uk for finding this one!
+            Exit Sub
+        End If
+    End If
+
     Dim totalArgSize As Integer
     For i = 0 To UBound(ArrayOfParams)
         totalArgSize = totalArgSize + ArrayOfParams(i).ParamSize
     Next i
-    
-    
+
+
     Dim curPtr As LongPtr
     #If Win64 Then
         curPtr = pParamBase
     #Else
         curPtr = pParamBase - totalArgSize
     #End If
-    
+
     #If DEBUGConst Then
         DumpMemory curPtr, totalArgSize
     #End If
-    
+
     For i = 0 To UBound(ArrayOfParams)
-        
+
         Dim thisParam As paramInfo
         thisParam = ArrayOfParams(i)
-        
+
         With thisParam
             Dim pParamVal As LongPtr
             If .IsByRef Then
-                pParamVal = ReadPtr(curPtr)
+                If CheckAddressSafe(curPtr) Then pParamVal = ReadPtr(curPtr)
             Else
                 pParamVal = curPtr
             End If
-                            
+
             'and here's the real nightmare
             .Value = ParamValAsString(pParamVal, thisParam)
-            
+
             #If DEBUGConst Then
                 Debug.Print .Value
             #End If
-            
+
             curPtr = curPtr + .ParamSize
         End With
-        
+
         ArrayOfParams(i) = thisParam
     Next i
-    
+
 End Sub
 
 Private Function ParamValAsString(paramPtr As LongPtr, thisParam As paramInfo) As String
